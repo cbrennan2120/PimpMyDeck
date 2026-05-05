@@ -1,3 +1,4 @@
+import { authRequiredMessage, deckOwnerPayload, isAuthConfigured } from "@/lib/auth-policy";
 import { deckCardRow, cardPrintRow, uniqueOracleRows, uniquePrintsFromDeck } from "@/lib/supabase/deck-persistence";
 import { createClient } from "@/lib/supabase/server";
 import { DEFAULT_FORMAT } from "@/lib/formats";
@@ -15,7 +16,7 @@ type SaveDeckBody = {
 };
 
 export async function POST(request: Request) {
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
+  if (!isAuthConfigured(process.env)) {
     return Response.json({ error: "Supabase is not configured" }, { status: 503 });
   }
 
@@ -23,6 +24,11 @@ export async function POST(request: Request) {
   const cards = body.cards ?? [];
   const prints = uniquePrintsFromDeck(cards);
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return Response.json({ error: authRequiredMessage }, { status: 401 });
 
   if (prints.length > 0) {
     const { error: oracleError } = await supabase
@@ -37,9 +43,10 @@ export async function POST(request: Request) {
   }
 
   const deckPayload = {
-      name: body.name?.trim() || "Pimped Deck",
-      format: body.format ?? DEFAULT_FORMAT,
-      source_text: { text: body.sourceText ?? "" },
+    name: body.name?.trim() || "Pimped Deck",
+    format: body.format ?? DEFAULT_FORMAT,
+    source_text: { text: body.sourceText ?? "" },
+    ...deckOwnerPayload(user),
   };
 
   const deckQuery = body.id
@@ -67,17 +74,24 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
+  if (!isAuthConfigured(process.env)) {
     return Response.json({ decks: [], configured: false });
   }
 
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return Response.json({ decks: [], configured: true, authenticated: false });
+
   const { data, error } = await supabase
     .from("decks")
     .select("id,name,format,created_at")
+    .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(20);
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
-  return Response.json({ decks: data ?? [], configured: true });
+  return Response.json({ decks: data ?? [], configured: true, authenticated: true });
 }

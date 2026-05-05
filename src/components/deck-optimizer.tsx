@@ -20,6 +20,7 @@ import {
   RefreshCw,
   Save,
   Search,
+  ShieldCheck,
   ShoppingCart,
   Sparkles,
   Trash2,
@@ -31,7 +32,9 @@ import { changedCards, reviewCards, sectionNames, toCsvRows } from "@/lib/deck-a
 import { toExportLine } from "@/lib/deck-parser";
 import { deckSummary, money } from "@/lib/deck-summary";
 import { DEFAULT_FORMAT, DECK_FORMATS, formatLabel, isSixtyCardFormat } from "@/lib/formats";
+import { authRequiredMessage } from "@/lib/auth-policy";
 import { applyVibeToDeck, VIBES } from "@/lib/pimp-engine";
+import { createClient } from "@/lib/supabase/client";
 import type { CardPrint, ResolvedDeck, ResolvedDeckCard, VibeId } from "@/lib/types";
 import type { DeckFormat } from "@/lib/formats";
 
@@ -66,6 +69,11 @@ type AdminStatus = {
     started_at: string;
     finished_at?: string | null;
   } | null;
+};
+
+type AuthUserState = {
+  id: string;
+  email?: string;
 };
 
 type DbPrint = {
@@ -426,6 +434,10 @@ export default function DeckOptimizer() {
   const [savedDecks, setSavedDecks] = useState<SavedDeckSummary[]>([]);
   const [savedDecksLoading, setSavedDecksLoading] = useState(false);
   const [adminStatus, setAdminStatus] = useState<AdminStatus | null>(null);
+  const [authUser, setAuthUser] = useState<AuthUserState | null>(null);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -448,6 +460,32 @@ export default function DeckOptimizer() {
     void refreshSavedDecks();
     void refreshAdminStatus();
   }, []);
+
+  useEffect(() => {
+    const supabase = createClient();
+    let mounted = true;
+
+    supabase.auth.getUser().then(({ data }) => {
+      if (!mounted) return;
+      setAuthUser(data.user ? { id: data.user.id, email: data.user.email ?? undefined } : null);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthUser(session?.user ? { id: session.user.id, email: session.user.email ?? undefined } : null);
+      setAuthMessage(null);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    void refreshSavedDecks();
+  }, [authUser?.id]);
 
   const filteredCards = useMemo(() => {
     const cards = deck?.cards ?? [];
@@ -600,8 +638,52 @@ export default function DeckOptimizer() {
     setAdminStatus((await response.json()) as AdminStatus);
   }
 
+  async function sendMagicLink() {
+    if (!authEmail.trim()) {
+      setAuthMessage("Enter your email address first.");
+      return;
+    }
+
+    setAuthLoading(true);
+    setAuthMessage(null);
+    setError(null);
+    try {
+      const supabase = createClient();
+      const { error: signInError } = await supabase.auth.signInWithOtp({
+        email: authEmail.trim(),
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      if (signInError) throw signInError;
+      setAuthMessage("Check your email for a sign-in link.");
+    } catch (caught) {
+      setAuthMessage(caught instanceof Error ? caught.message : "Could not send sign-in link");
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
+  async function signOut() {
+    setAuthLoading(true);
+    setAuthMessage(null);
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      setAuthUser(null);
+      setSavedDecks([]);
+      setActiveDeckId(null);
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
   async function saveDeck(overwrite = false) {
     if (!deck) return;
+    if (!authUser) {
+      setError(authRequiredMessage);
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -635,6 +717,10 @@ export default function DeckOptimizer() {
 
   async function renameSavedDeck() {
     if (!activeDeckId || !deckName.trim()) return;
+    if (!authUser) {
+      setError(authRequiredMessage);
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -657,6 +743,10 @@ export default function DeckOptimizer() {
 
   async function deleteSavedDeck(deckId = activeDeckId) {
     if (!deckId) return;
+    if (!authUser) {
+      setError(authRequiredMessage);
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -676,6 +766,10 @@ export default function DeckOptimizer() {
 
   async function duplicateSavedDeck(deckId = activeDeckId) {
     if (!deckId) return;
+    if (!authUser) {
+      setError(authRequiredMessage);
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -994,7 +1088,7 @@ export default function DeckOptimizer() {
             <button
               type="button"
               onClick={() => saveDeck(false)}
-              disabled={!deck || saving}
+              disabled={!deck || saving || !authUser}
               className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-emerald-600 px-3 text-sm font-semibold text-white disabled:opacity-50"
             >
               <Save className="h-4 w-4" />
@@ -1003,7 +1097,7 @@ export default function DeckOptimizer() {
             <button
               type="button"
               onClick={() => saveDeck(true)}
-              disabled={!deck || !activeDeckId || saving}
+              disabled={!deck || !activeDeckId || saving || !authUser}
               className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-emerald-600 bg-white px-3 text-sm font-semibold text-emerald-700 disabled:opacity-50"
             >
               Overwrite
@@ -1051,6 +1145,50 @@ export default function DeckOptimizer() {
 
         <aside className="space-y-4">
           {deck && <SwipeReview cards={deck.cards} onSelect={selectPrint} />}
+
+          <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center gap-2 text-sm font-semibold text-zinc-950">
+              <ShieldCheck className="h-4 w-4" />
+              Account
+            </div>
+            {authUser ? (
+              <div className="mt-3 space-y-3">
+                <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
+                  Signed in as {authUser.email ?? "Supabase user"}
+                </p>
+                <button
+                  type="button"
+                  onClick={signOut}
+                  disabled={authLoading}
+                  className="inline-flex h-10 w-full items-center justify-center rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-900 disabled:opacity-50"
+                >
+                  Sign out
+                </button>
+              </div>
+            ) : (
+              <div className="mt-3 space-y-3">
+                <p className="text-sm leading-6 text-zinc-600">
+                  Guests can resolve, pimp, export, and buy-link decks. Sign in to save private decks.
+                </p>
+                <input
+                  type="email"
+                  value={authEmail}
+                  onChange={(event) => setAuthEmail(event.target.value)}
+                  placeholder="you@example.com"
+                  className="h-10 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-zinc-950"
+                />
+                <button
+                  type="button"
+                  onClick={sendMagicLink}
+                  disabled={authLoading}
+                  className="inline-flex h-10 w-full items-center justify-center rounded-md bg-zinc-950 px-3 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  {authLoading ? "Sending..." : "Send sign-in link"}
+                </button>
+                {authMessage && <p className="text-sm font-medium text-zinc-700">{authMessage}</p>}
+              </div>
+            )}
+          </section>
 
           <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
             <h2 className="text-sm font-semibold text-zinc-950">Deck Format</h2>
@@ -1134,7 +1272,7 @@ export default function DeckOptimizer() {
               <button
                 type="button"
                 onClick={renameSavedDeck}
-                disabled={!activeDeckId || saving}
+                disabled={!activeDeckId || saving || !authUser}
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-900 disabled:opacity-50"
               >
                 <Pencil className="h-4 w-4" />
@@ -1143,7 +1281,7 @@ export default function DeckOptimizer() {
               <button
                 type="button"
                 onClick={() => duplicateSavedDeck()}
-                disabled={!activeDeckId || saving}
+                disabled={!activeDeckId || saving || !authUser}
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-900 disabled:opacity-50"
               >
                 <Copy className="h-4 w-4" />
@@ -1170,7 +1308,9 @@ export default function DeckOptimizer() {
               )}
               {!savedDecksLoading && savedDecks.length === 0 && (
                 <p className="text-sm leading-6 text-zinc-600">
-                  Supabase decks will appear here after configuration and save.
+                  {authUser
+                    ? "Your private saved decks will appear here."
+                    : "Sign in to save and manage private decks."}
                 </p>
               )}
               {savedDecks.map((savedDeck) => (

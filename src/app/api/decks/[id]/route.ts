@@ -1,3 +1,4 @@
+import { authRequiredMessage, isAuthConfigured } from "@/lib/auth-policy";
 import { createClient } from "@/lib/supabase/server";
 import { duplicateDeckName } from "@/lib/supabase/deck-persistence";
 
@@ -5,7 +6,14 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function supabaseConfigured() {
-  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
+  return isAuthConfigured(process.env);
+}
+
+async function getSignedInUser(supabase: Awaited<ReturnType<typeof createClient>>) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user;
 }
 
 export async function GET(
@@ -18,10 +26,14 @@ export async function GET(
 
   const { id } = await params;
   const supabase = await createClient();
+  const user = await getSignedInUser(supabase);
+  if (!user) return Response.json({ error: authRequiredMessage }, { status: 401 });
+
   const { data: deck, error: deckError } = await supabase
     .from("decks")
     .select("id,name,format,source_text,created_at")
     .eq("id", id)
+    .eq("user_id", user.id)
     .single();
 
   if (deckError) return Response.json({ error: deckError.message }, { status: 404 });
@@ -57,10 +69,14 @@ export async function PATCH(
   }
 
   const supabase = await createClient();
+  const user = await getSignedInUser(supabase);
+  if (!user) return Response.json({ error: authRequiredMessage }, { status: 401 });
+
   const { data, error } = await supabase
     .from("decks")
     .update(updates)
     .eq("id", id)
+    .eq("user_id", user.id)
     .select("id,name,format,created_at")
     .single();
 
@@ -78,7 +94,10 @@ export async function DELETE(
 
   const { id } = await params;
   const supabase = await createClient();
-  const { error } = await supabase.from("decks").delete().eq("id", id);
+  const user = await getSignedInUser(supabase);
+  if (!user) return Response.json({ error: authRequiredMessage }, { status: 401 });
+
+  const { error } = await supabase.from("decks").delete().eq("id", id).eq("user_id", user.id);
   if (error) return Response.json({ error: error.message }, { status: 500 });
   return Response.json({ deleted: true });
 }
@@ -93,10 +112,14 @@ export async function POST(
 
   const { id } = await params;
   const supabase = await createClient();
+  const user = await getSignedInUser(supabase);
+  if (!user) return Response.json({ error: authRequiredMessage }, { status: 401 });
+
   const { data: deck, error: deckError } = await supabase
     .from("decks")
     .select("name,format,source_text")
     .eq("id", id)
+    .eq("user_id", user.id)
     .single();
   if (deckError) return Response.json({ error: deckError.message }, { status: 404 });
 
@@ -112,6 +135,7 @@ export async function POST(
       name: duplicateDeckName(deck.name),
       format: deck.format,
       source_text: deck.source_text,
+      user_id: user.id,
     })
     .select("id,name,format,created_at")
     .single();

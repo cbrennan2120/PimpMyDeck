@@ -53,6 +53,17 @@ SUBID_PREFIX=pmd
 
 Without those values, the redirect route preserves the TCGplayer destination and appends local UTM parameters marked `affiliate-pending`.
 
+## Auth Configuration
+
+Saved decks require Supabase Auth. Enable email magic links in Supabase and add these redirect URLs:
+
+```text
+http://localhost:3000/auth/callback
+https://cbrennan-pimp-my-deck.netlify.app/auth/callback
+```
+
+Guests can still resolve, pimp, export, and use purchase links without signing in.
+
 ## Data Architecture
 
 The current MVP works without Supabase credentials by resolving through Scryfall live search and in-memory request caching. The production path is represented in `supabase/migrations/0001_initial_schema.sql`: ingest Scryfall bulk data into `oracle_cards` and `card_prints`, then resolve uploaded decks from indexed local data instead of issuing per-card live API calls.

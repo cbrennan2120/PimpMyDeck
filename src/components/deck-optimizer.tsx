@@ -289,7 +289,7 @@ function DeckCard({
   const [correction, setCorrection] = useState(card.name);
 
   return (
-    <article className="pmd-card-frame my-4 grid gap-4 rounded-md p-3 lg:grid-cols-[138px_1fr]">
+    <article className="pmd-card-frame my-5 grid gap-5 rounded-md p-4 lg:grid-cols-[184px_1fr]">
       <div className="min-w-0 self-start">
         <CardImage print={selected} alt={card.name} />
       </div>
@@ -1012,14 +1012,14 @@ export default function DeckOptimizer() {
       </section>
 
       <section className="sticky top-0 z-20 border-b-2 border-[#17130f] bg-[rgba(247,243,231,0.95)] backdrop-blur">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-5 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-8">
-          <div className="flex gap-2 overflow-x-auto pb-1">
+        <div className="mx-auto flex max-w-7xl flex-col gap-2 px-5 py-4 lg:px-8">
+          <div className="flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible">
             {VIBES.map((vibe) => (
               <button
                 type="button"
                 key={vibe.id}
                 onClick={() => applyVibe(vibe.id)}
-                className={`inline-flex h-10 shrink-0 items-center gap-2 rounded border-2 px-3 text-sm font-semibold transition ${
+                className={`inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded border-2 px-3 text-sm font-semibold transition ${
                   activeVibe === vibe.id
                     ? "border-[#17130f] bg-[#17130f] text-[#fffaf0]"
                     : "border-[#17130f] bg-[#fffaf0] text-[#17130f] hover:bg-[#f6eed7]"
@@ -1034,46 +1034,28 @@ export default function DeckOptimizer() {
               type="button"
               onClick={() => applyVibe(activeVibe, true)}
               disabled={!deck}
-              className="inline-flex h-10 shrink-0 items-center gap-2 rounded border border-[#c99234] bg-[#fff4cf] px-3 text-sm font-semibold text-[#5d4110] disabled:opacity-50"
+              className="inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded border border-[#c99234] bg-[#fff4cf] px-3 text-sm font-semibold text-[#5d4110] disabled:opacity-50"
             >
               <ArrowRight className="h-4 w-4" />
               Reapply all
             </button>
-            <button
-              type="button"
-              onClick={lockAllSelected}
-              disabled={!deck}
-              className="inline-flex h-10 shrink-0 items-center gap-2 rounded border border-[#17130f] bg-[#fffaf0] px-3 text-sm font-semibold text-[#17130f] disabled:opacity-50"
-            >
-              <Lock className="h-4 w-4" />
-              Lock all
-            </button>
-            <button
-              type="button"
-              onClick={clearLocks}
-              disabled={!deck}
-              className="inline-flex h-10 shrink-0 items-center gap-2 rounded border border-[#17130f] bg-[#fffaf0] px-3 text-sm font-semibold text-[#17130f] disabled:opacity-50"
-            >
-              <CircleSlash className="h-4 w-4" />
-              Clear locks
-            </button>
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <label className="relative block">
+          <div className="flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible">
+            <label className="relative block shrink-0">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search cards or sets"
-                className="h-10 w-full rounded border border-[#17130f] bg-[#fffaf0] pl-9 pr-3 text-sm outline-none focus:border-[#1769a6] sm:w-64"
+                className="h-10 w-64 rounded border border-[#17130f] bg-[#fffaf0] pl-9 pr-3 text-sm outline-none focus:border-[#1769a6] lg:w-72"
               />
             </label>
             <button
               type="button"
               onClick={() => setChangedOnly((value) => !value)}
               disabled={!deck}
-              className={`inline-flex h-10 items-center justify-center gap-2 rounded-md border px-3 text-sm font-semibold disabled:opacity-50 ${
+              className={`inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md border px-3 text-sm font-semibold disabled:opacity-50 ${
                 changedOnly
                   ? "border-zinc-950 bg-zinc-950 text-white"
                   : "border-[#17130f] bg-[#fffaf0] text-[#17130f]"
@@ -1085,7 +1067,7 @@ export default function DeckOptimizer() {
               type="button"
               onClick={() => setReviewOnly((value) => !value)}
               disabled={!deck}
-              className={`inline-flex h-10 items-center justify-center gap-2 rounded-md border px-3 text-sm font-semibold disabled:opacity-50 ${
+              className={`inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md border px-3 text-sm font-semibold disabled:opacity-50 ${
                 reviewOnly
                   ? "border-amber-700 bg-amber-700 text-white"
                   : "border-[#17130f] bg-[#fffaf0] text-[#17130f]"
@@ -1097,7 +1079,7 @@ export default function DeckOptimizer() {
               value={selectedSection}
               onChange={(event) => setSelectedSection(event.target.value)}
               disabled={!deck}
-              className="h-10 rounded border border-[#17130f] bg-[#fffaf0] px-3 text-sm font-semibold text-[#17130f] outline-none disabled:opacity-50"
+              className="h-10 shrink-0 rounded border border-[#17130f] bg-[#fffaf0] px-3 text-sm font-semibold text-[#17130f] outline-none disabled:opacity-50"
             >
               <option value="All">All sections</option>
               {sections.map((section) => (
@@ -1110,7 +1092,7 @@ export default function DeckOptimizer() {
               type="button"
               onClick={() => navigator.clipboard.writeText(exportText)}
               disabled={!deck}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded border border-[#17130f] bg-[#fffaf0] px-3 text-sm font-semibold text-[#17130f] disabled:opacity-50"
+              className="inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded border border-[#17130f] bg-[#fffaf0] px-3 text-sm font-semibold text-[#17130f] disabled:opacity-50"
             >
               <Download className="h-4 w-4" />
               Copy export
@@ -1119,7 +1101,7 @@ export default function DeckOptimizer() {
               type="button"
               onClick={() => navigator.clipboard.writeText(changedExportText)}
               disabled={!deck || cardsChanged.length === 0}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded border border-[#17130f] bg-[#fffaf0] px-3 text-sm font-semibold text-[#17130f] disabled:opacity-50"
+              className="inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded border border-[#17130f] bg-[#fffaf0] px-3 text-sm font-semibold text-[#17130f] disabled:opacity-50"
             >
               <Copy className="h-4 w-4" />
               Changed
@@ -1128,7 +1110,7 @@ export default function DeckOptimizer() {
               type="button"
               onClick={() => saveDeck(false)}
               disabled={!deck || saving || !authUser}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded border border-[#17130f] bg-[#28724d] px-3 text-sm font-semibold text-white disabled:opacity-50"
+              className="inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded border border-[#17130f] bg-[#28724d] px-3 text-sm font-semibold text-white disabled:opacity-50"
             >
               <Save className="h-4 w-4" />
               {saving ? "Saving" : "Save"}
@@ -1137,7 +1119,7 @@ export default function DeckOptimizer() {
               type="button"
               onClick={() => saveDeck(true)}
               disabled={!deck || !activeDeckId || saving || !authUser}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded border border-[#28724d] bg-[#fffaf0] px-3 text-sm font-semibold text-[#28724d] disabled:opacity-50"
+              className="inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded border border-[#28724d] bg-[#fffaf0] px-3 text-sm font-semibold text-[#28724d] disabled:opacity-50"
             >
               Overwrite
             </button>
@@ -1329,6 +1311,24 @@ export default function DeckOptimizer() {
               >
                 <ShoppingCart className="h-4 w-4" />
                 Buy links
+              </button>
+              <button
+                type="button"
+                onClick={lockAllSelected}
+                disabled={!deck}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded border border-[#17130f] bg-[#fffaf0] px-3 text-sm font-semibold text-[#17130f] disabled:opacity-50"
+              >
+                <Lock className="h-4 w-4" />
+                Lock all
+              </button>
+              <button
+                type="button"
+                onClick={clearLocks}
+                disabled={!deck}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded border border-[#17130f] bg-[#fffaf0] px-3 text-sm font-semibold text-[#17130f] disabled:opacity-50"
+              >
+                <CircleSlash className="h-4 w-4" />
+                Clear locks
               </button>
               <button
                 type="button"

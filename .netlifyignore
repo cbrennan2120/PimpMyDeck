@@ -1,0 +1,17 @@
+node_modules
+.next
+.netlify
+.env
+.env.*
+!.env.example
+supaPW.md
+data
+coverage
+codex-*.png
+.codex-*.png
+.edge-profile
+.edge-cdp-profile*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*

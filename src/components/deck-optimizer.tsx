@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   ShoppingCart,
   Sparkles,
+  TriangleAlert,
   Trash2,
   Upload,
   Wand2,
@@ -33,6 +34,7 @@ import { toExportLine } from "@/lib/deck-parser";
 import { deckSummary, money } from "@/lib/deck-summary";
 import { DEFAULT_FORMAT, DECK_FORMATS, formatLabel, isSixtyCardFormat } from "@/lib/formats";
 import { authRequiredMessage } from "@/lib/auth-policy";
+import { deckLegalityWarnings } from "@/lib/legality";
 import { applyVibeToDeck, VIBES } from "@/lib/pimp-engine";
 import { createClient } from "@/lib/supabase/client";
 import type { CardPrint, ResolvedDeck, ResolvedDeckCard, VibeId } from "@/lib/types";
@@ -508,6 +510,10 @@ export default function DeckOptimizer() {
   const sections = useMemo(() => (deck ? sectionNames(deck.cards) : []), [deck]);
   const cardsNeedingReview = useMemo(() => reviewCards(deck?.cards ?? []), [deck]);
   const cardsChanged = useMemo(() => changedCards(deck?.cards ?? []), [deck]);
+  const legalityWarnings = useMemo(
+    () => deckLegalityWarnings(deck?.cards ?? [], deckFormat),
+    [deck, deckFormat],
+  );
 
   async function resolveDeck(vibe = activeVibe) {
     setLoading(true);
@@ -1209,6 +1215,28 @@ export default function DeckOptimizer() {
               Multiple-copy rows like 4 Lightning Bolt stay as one card slot with quantity 4.
             </p>
           </section>
+
+          {deck && (
+            <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center gap-2 text-sm font-semibold text-zinc-950">
+                <TriangleAlert className="h-4 w-4 text-amber-600" />
+                Format Warnings
+              </div>
+              {legalityWarnings.length === 0 ? (
+                <p className="mt-3 text-sm leading-6 text-zinc-600">
+                  No basic copy-count warnings for {formatLabel(deckFormat)}.
+                </p>
+              ) : (
+                <ul className="mt-3 space-y-2 text-sm leading-6 text-amber-900">
+                  {legalityWarnings.map((warning) => (
+                    <li key={warning} className="rounded-md bg-amber-50 px-3 py-2">
+                      {warning}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
 
           <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
             <h2 className="text-sm font-semibold text-zinc-950">Deck Value</h2>

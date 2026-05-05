@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "ingest:scryfall": "node scripts/ingest-scryfall-bulk.mjs"
+    "ingest:scryfall": "node scripts/ingest-scryfall-bulk.mjs",
+    "ingest:supabase": "node scripts/ingest-scryfall-to-supabase.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",

@@ -30,6 +30,17 @@ npm run lint
 npm run build
 ```
 
+## Manual Production Deploy Checklist
+
+Deploys are intentionally manual to control Netlify usage.
+
+1. Run `npm test`.
+2. Run `npm run lint`.
+3. Run `npm run build`.
+4. Commit and push to GitHub.
+5. Trigger a Netlify deploy only after explicit approval.
+6. Verify the live site and `/api/decks` after deploy.
+
 ## Affiliate Configuration
 
 Copy `.env.example` to `.env.local` and fill in the Impact-provided TCGplayer values:
@@ -53,3 +64,12 @@ npm run ingest:scryfall -- data/scryfall-print-cache.json
 ```
 
 Then set `SCRYFALL_PRINT_CACHE_PATH=data/scryfall-print-cache.json` in `.env.local`. The resolver will use the local cache first and call live Scryfall only for cache misses.
+
+To import that generated cache into Supabase:
+
+```bash
+npm run ingest:scryfall -- data/scryfall-print-cache.json
+npm run ingest:supabase -- data/scryfall-print-cache.json
+```
+
+The Supabase ingest uses `NEXT_PUBLIC_SUPABASE_URL` plus `SUPABASE_SERVICE_ROLE_KEY` when available, otherwise `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. The app resolver checks Supabase `card_prints` first, then local file cache, then live Scryfall fallback.

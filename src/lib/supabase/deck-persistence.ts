@@ -66,3 +66,13 @@ export function uniqueOracleRows(prints: CardPrint[]) {
   }
   return [...byId.values()];
 }
+
+export function duplicateDeckName(name: string) {
+  const trimmed = name.trim() || "Pimped Deck";
+  const match = trimmed.match(/^(.*) Copy(?: (\d+))?$/);
+  if (!match) return `${trimmed} Copy`;
+
+  const base = match[1] ?? trimmed;
+  const next = Number.parseInt(match[2] ?? "1", 10) + 1;
+  return `${base} Copy ${next}`;
+}

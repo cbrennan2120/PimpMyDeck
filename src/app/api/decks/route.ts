@@ -6,6 +6,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type SaveDeckBody = {
+  id?: string;
   name?: string;
   format?: string;
   sourceText?: string;
@@ -34,19 +35,28 @@ export async function POST(request: Request) {
     if (printError) return Response.json({ error: printError.message }, { status: 500 });
   }
 
-  const { data: deck, error: deckError } = await supabase
-    .from("decks")
-    .insert({
+  const deckPayload = {
       name: body.name?.trim() || "Pimped Deck",
       format: body.format ?? "commander",
       source_text: { text: body.sourceText ?? "" },
-    })
+  };
+
+  const deckQuery = body.id
+    ? supabase.from("decks").update(deckPayload).eq("id", body.id)
+    : supabase.from("decks").insert(deckPayload);
+
+  const { data: deck, error: deckError } = await deckQuery
     .select("id,name,format,created_at")
     .single();
 
   if (deckError) return Response.json({ error: deckError.message }, { status: 500 });
 
   const deckRows = cards.map((card) => deckCardRow(deck.id, card));
+  if (body.id) {
+    const { error: deleteError } = await supabase.from("deck_cards").delete().eq("deck_id", deck.id);
+    if (deleteError) return Response.json({ error: deleteError.message }, { status: 500 });
+  }
+
   if (deckRows.length > 0) {
     const { error: cardsError } = await supabase.from("deck_cards").insert(deckRows);
     if (cardsError) return Response.json({ error: cardsError.message }, { status: 500 });

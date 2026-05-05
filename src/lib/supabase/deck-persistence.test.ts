@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { cardPrintRow, deckCardRow, oracleCardRow, uniqueOracleRows } from "./deck-persistence";
+import {
+  cardPrintRow,
+  deckCardRow,
+  duplicateDeckName,
+  oracleCardRow,
+  uniqueOracleRows,
+} from "./deck-persistence";
 import type { CardPrint, ResolvedDeckCard } from "../types";
 
 const samplePrint: CardPrint = {
@@ -70,5 +76,11 @@ describe("deck persistence row mapping", () => {
     const variant = { ...samplePrint, scryfallId: "44444444-4444-4444-4444-444444444444" };
 
     expect(uniqueOracleRows([samplePrint, variant])).toHaveLength(1);
+  });
+
+  it("names duplicated decks predictably", () => {
+    expect(duplicateDeckName("Atraxa Flex")).toBe("Atraxa Flex Copy");
+    expect(duplicateDeckName("Atraxa Flex Copy")).toBe("Atraxa Flex Copy 2");
+    expect(duplicateDeckName("Atraxa Flex Copy 9")).toBe("Atraxa Flex Copy 10");
   });
 });

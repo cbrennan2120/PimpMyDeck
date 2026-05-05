@@ -7,22 +7,29 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleSlash,
+  Copy,
+  Database,
   Download,
+  ExternalLink,
   Gem,
   Image as ImageIcon,
   Layers3,
   Loader2,
   Lock,
+  Pencil,
+  RefreshCw,
   Save,
   Search,
   ShoppingCart,
   Sparkles,
+  Trash2,
   Upload,
   Wand2,
 } from "lucide-react";
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { changedCards, reviewCards, sectionNames, toCsvRows } from "@/lib/deck-actions";
 import { toExportLine } from "@/lib/deck-parser";
-import { deckSummary, isChangedFromDefault, money } from "@/lib/deck-summary";
+import { deckSummary, money } from "@/lib/deck-summary";
 import { applyVibeToDeck, VIBES } from "@/lib/pimp-engine";
 import type { CardPrint, ResolvedDeck, ResolvedDeckCard, VibeId } from "@/lib/types";
 
@@ -46,6 +53,17 @@ type SavedDeckSummary = {
   name: string;
   format: string;
   created_at: string;
+};
+
+type AdminStatus = {
+  configured: boolean;
+  cardPrintCount?: number;
+  latestIngestRun?: {
+    status: string;
+    card_count: number;
+    started_at: string;
+    finished_at?: string | null;
+  } | null;
 };
 
 type DbPrint = {
@@ -393,9 +411,15 @@ export default function DeckOptimizer() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deckName, setDeckName] = useState("Pimped Deck");
+  const [activeDeckId, setActiveDeckId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [changedOnly, setChangedOnly] = useState(false);
+  const [reviewOnly, setReviewOnly] = useState(false);
+  const [selectedSection, setSelectedSection] = useState("All");
   const [savedDecks, setSavedDecks] = useState<SavedDeckSummary[]>([]);
+  const [savedDecksLoading, setSavedDecksLoading] = useState(false);
+  const [adminStatus, setAdminStatus] = useState<AdminStatus | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -412,11 +436,16 @@ export default function DeckOptimizer() {
 
   useEffect(() => {
     void refreshSavedDecks();
+    void refreshAdminStatus();
   }, []);
 
   const filteredCards = useMemo(() => {
     const cards = deck?.cards ?? [];
-    const scope = changedOnly ? cards.filter(isChangedFromDefault) : cards;
+    let scope = changedOnly ? changedCards(cards) : cards;
+    if (reviewOnly) scope = reviewCards(scope);
+    if (selectedSection !== "All") {
+      scope = scope.filter((card) => card.section === selectedSection);
+    }
     if (!query.trim()) return scope;
     const needle = query.toLowerCase();
     return scope.filter(
@@ -425,9 +454,12 @@ export default function DeckOptimizer() {
         card.selectedPrint?.setName.toLowerCase().includes(needle) ||
         card.selectedPrint?.setCode.toLowerCase().includes(needle),
     );
-  }, [changedOnly, deck, query]);
+  }, [changedOnly, deck, query, reviewOnly, selectedSection]);
 
   const summary = useMemo(() => deckSummary(deck?.cards ?? []), [deck]);
+  const sections = useMemo(() => (deck ? sectionNames(deck.cards) : []), [deck]);
+  const cardsNeedingReview = useMemo(() => reviewCards(deck?.cards ?? []), [deck]);
+  const cardsChanged = useMemo(() => changedCards(deck?.cards ?? []), [deck]);
 
   async function resolveDeck(vibe = activeVibe) {
     setLoading(true);
@@ -440,6 +472,8 @@ export default function DeckOptimizer() {
       });
       if (!response.ok) throw new Error(`Resolve failed: ${response.status}`);
       setDeck((await response.json()) as ResolvedDeck);
+      setActiveDeckId(null);
+      setDeckName(`Pimped Deck ${new Date().toLocaleDateString()}`);
       setActiveVibe(vibe);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not resolve deck");
@@ -539,13 +573,24 @@ export default function DeckOptimizer() {
   }
 
   async function refreshSavedDecks() {
-    const response = await fetch("/api/decks");
-    if (!response.ok) return;
-    const payload = (await response.json()) as { decks?: SavedDeckSummary[] };
-    setSavedDecks(payload.decks ?? []);
+    setSavedDecksLoading(true);
+    try {
+      const response = await fetch("/api/decks");
+      if (!response.ok) return;
+      const payload = (await response.json()) as { decks?: SavedDeckSummary[] };
+      setSavedDecks(payload.decks ?? []);
+    } finally {
+      setSavedDecksLoading(false);
+    }
   }
 
-  async function saveDeck() {
+  async function refreshAdminStatus() {
+    const response = await fetch("/api/admin/status");
+    if (!response.ok) return;
+    setAdminStatus((await response.json()) as AdminStatus);
+  }
+
+  async function saveDeck(overwrite = false) {
     if (!deck) return;
     setSaving(true);
     setError(null);
@@ -554,7 +599,8 @@ export default function DeckOptimizer() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: `Pimped Deck ${new Date().toLocaleDateString()}`,
+          id: overwrite ? activeDeckId : undefined,
+          name: deckName,
           format: "commander",
           sourceText: deckText,
           cards: deck.cards,
@@ -564,9 +610,78 @@ export default function DeckOptimizer() {
         const payload = (await response.json()) as { error?: string };
         throw new Error(payload.error ?? `Save failed: ${response.status}`);
       }
+      const payload = (await response.json()) as { deck?: SavedDeckSummary };
+      if (payload.deck?.id) {
+        setActiveDeckId(payload.deck.id);
+        setDeckName(payload.deck.name);
+      }
       await refreshSavedDecks();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not save deck");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function renameSavedDeck() {
+    if (!activeDeckId || !deckName.trim()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/decks/${activeDeckId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: deckName }),
+      });
+      if (!response.ok) {
+        const payload = (await response.json()) as { error?: string };
+        throw new Error(payload.error ?? `Rename failed: ${response.status}`);
+      }
+      await refreshSavedDecks();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not rename deck");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteSavedDeck(deckId = activeDeckId) {
+    if (!deckId) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/decks/${deckId}`, { method: "DELETE" });
+      if (!response.ok) {
+        const payload = (await response.json()) as { error?: string };
+        throw new Error(payload.error ?? `Delete failed: ${response.status}`);
+      }
+      if (deckId === activeDeckId) setActiveDeckId(null);
+      await refreshSavedDecks();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not delete deck");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function duplicateSavedDeck(deckId = activeDeckId) {
+    if (!deckId) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/decks/${deckId}`, { method: "POST" });
+      if (!response.ok) {
+        const payload = (await response.json()) as { error?: string };
+        throw new Error(payload.error ?? `Duplicate failed: ${response.status}`);
+      }
+      const payload = (await response.json()) as { deck?: SavedDeckSummary };
+      if (payload.deck?.id) {
+        setActiveDeckId(payload.deck.id);
+        setDeckName(payload.deck.name);
+      }
+      await refreshSavedDecks();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not duplicate deck");
     } finally {
       setSaving(false);
     }
@@ -582,7 +697,7 @@ export default function DeckOptimizer() {
     }
 
     const payload = (await response.json()) as {
-      deck: { source_text?: { text?: string } };
+      deck: { id: string; name: string; source_text?: { text?: string } };
       cards: Array<{
         id: string;
         quantity: number;
@@ -607,6 +722,8 @@ export default function DeckOptimizer() {
         userLocked: row.user_locked,
       };
     });
+    setActiveDeckId(payload.deck.id);
+    setDeckName(payload.deck.name);
     setDeckText(payload.deck.source_text?.text ?? restoredCards.map((card) => card.raw).join("\n"));
     setDeck({
       cards: restoredCards,
@@ -625,6 +742,18 @@ export default function DeckOptimizer() {
   const exportText = useMemo(
     () => (deck ? deck.cards.map(toExportLine).join("\n") : ""),
     [deck],
+  );
+  const changedExportText = useMemo(
+    () => cardsChanged.map(toExportLine).join("\n"),
+    [cardsChanged],
+  );
+  const csvExportText = useMemo(
+    () => (deck ? toCsvRows(deck.cards) : ""),
+    [deck],
+  );
+  const changedBuyLinks = useMemo(
+    () => cardsChanged.map(buyUrl).filter(Boolean).join("\n"),
+    [cardsChanged],
   );
 
   return (
@@ -703,7 +832,7 @@ export default function DeckOptimizer() {
               </button>
               {error && <span className="text-sm font-medium text-red-700">{error}</span>}
               <span className="text-xs leading-5 text-zinc-500">
-                Live fallback queues Scryfall requests at 110ms spacing.
+                Supabase cache resolves first; live fallback queues Scryfall requests at 110ms spacing.
               </span>
             </div>
           </div>
@@ -760,6 +889,15 @@ export default function DeckOptimizer() {
 
           <div className="flex flex-col gap-2 sm:flex-row">
             <label className="relative block">
+              <Pencil className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+              <input
+                value={deckName}
+                onChange={(event) => setDeckName(event.target.value)}
+                placeholder="Deck name"
+                className="h-10 w-full rounded-md border border-zinc-300 bg-white pl-9 pr-3 text-sm outline-none focus:border-zinc-950 sm:w-52"
+              />
+            </label>
+            <label className="relative block">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
               <input
                 value={query}
@@ -782,6 +920,31 @@ export default function DeckOptimizer() {
             </button>
             <button
               type="button"
+              onClick={() => setReviewOnly((value) => !value)}
+              disabled={!deck}
+              className={`inline-flex h-10 items-center justify-center gap-2 rounded-md border px-3 text-sm font-semibold disabled:opacity-50 ${
+                reviewOnly
+                  ? "border-amber-700 bg-amber-700 text-white"
+                  : "border-zinc-300 bg-white text-zinc-900"
+              }`}
+            >
+              Review {cardsNeedingReview.length}
+            </button>
+            <select
+              value={selectedSection}
+              onChange={(event) => setSelectedSection(event.target.value)}
+              disabled={!deck}
+              className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-900 outline-none disabled:opacity-50"
+            >
+              <option value="All">All sections</option>
+              {sections.map((section) => (
+                <option key={section} value={section}>
+                  {section}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
               onClick={() => navigator.clipboard.writeText(exportText)}
               disabled={!deck}
               className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-900 disabled:opacity-50"
@@ -791,12 +954,29 @@ export default function DeckOptimizer() {
             </button>
             <button
               type="button"
-              onClick={saveDeck}
+              onClick={() => navigator.clipboard.writeText(changedExportText)}
+              disabled={!deck || cardsChanged.length === 0}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-900 disabled:opacity-50"
+            >
+              <Copy className="h-4 w-4" />
+              Changed
+            </button>
+            <button
+              type="button"
+              onClick={() => saveDeck(false)}
               disabled={!deck || saving}
               className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-emerald-600 px-3 text-sm font-semibold text-white disabled:opacity-50"
             >
               <Save className="h-4 w-4" />
               {saving ? "Saving" : "Save"}
+            </button>
+            <button
+              type="button"
+              onClick={() => saveDeck(true)}
+              disabled={!deck || !activeDeckId || saving}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-emerald-600 bg-white px-3 text-sm font-semibold text-emerald-700 disabled:opacity-50"
+            >
+              Overwrite
             </button>
           </div>
         </div>
@@ -827,6 +1007,16 @@ export default function DeckOptimizer() {
                 onCorrect={correctCardName}
               />
             ))}
+          {deck && filteredCards.length === 0 && (
+            <div className="grid min-h-80 place-items-center py-16 text-center">
+              <div className="max-w-md">
+                <h2 className="text-xl font-semibold text-zinc-950">No cards match these filters</h2>
+                <p className="mt-2 text-sm leading-6 text-zinc-600">
+                  Clear search, review-only, changed-only, or section filters to return to the full gallery.
+                </p>
+              </div>
+            </div>
+          )}
         </section>
 
         <aside className="space-y-4">
@@ -871,6 +1061,48 @@ export default function DeckOptimizer() {
           </section>
 
           <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
+            <h2 className="text-sm font-semibold text-zinc-950">Quick Actions</h2>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => navigator.clipboard.writeText(csvExportText)}
+                disabled={!deck}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-900 disabled:opacity-50"
+              >
+                <Download className="h-4 w-4" />
+                CSV
+              </button>
+              <button
+                type="button"
+                onClick={() => navigator.clipboard.writeText(changedBuyLinks)}
+                disabled={!deck || !changedBuyLinks}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-900 disabled:opacity-50"
+              >
+                <ShoppingCart className="h-4 w-4" />
+                Buy links
+              </button>
+              <button
+                type="button"
+                onClick={renameSavedDeck}
+                disabled={!activeDeckId || saving}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-900 disabled:opacity-50"
+              >
+                <Pencil className="h-4 w-4" />
+                Rename
+              </button>
+              <button
+                type="button"
+                onClick={() => duplicateSavedDeck()}
+                disabled={!activeDeckId || saving}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-900 disabled:opacity-50"
+              >
+                <Copy className="h-4 w-4" />
+                Duplicate
+              </button>
+            </div>
+          </section>
+
+          <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
             <div className="flex items-center gap-2 text-sm font-semibold text-zinc-950">
               <BadgeDollarSign className="h-4 w-4" />
               Affiliate disclosure
@@ -883,25 +1115,99 @@ export default function DeckOptimizer() {
           <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
             <h2 className="text-sm font-semibold text-zinc-950">Saved Decks</h2>
             <div className="mt-3 space-y-2">
-              {savedDecks.length === 0 && (
+              {savedDecksLoading && (
+                <p className="text-sm leading-6 text-zinc-600">Loading saved decks...</p>
+              )}
+              {!savedDecksLoading && savedDecks.length === 0 && (
                 <p className="text-sm leading-6 text-zinc-600">
                   Supabase decks will appear here after configuration and save.
                 </p>
               )}
               {savedDecks.map((savedDeck) => (
-                <button
-                  type="button"
+                <div
                   key={savedDeck.id}
-                  onClick={() => loadSavedDeck(savedDeck.id)}
-                  className="block w-full rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-left text-sm transition hover:border-zinc-950"
+                  className={`rounded-md border px-3 py-2 text-sm transition ${
+                    activeDeckId === savedDeck.id
+                      ? "border-zinc-950 bg-zinc-100"
+                      : "border-zinc-200 bg-zinc-50"
+                  }`}
                 >
-                  <span className="block font-semibold text-zinc-950">{savedDeck.name}</span>
-                  <span className="text-xs text-zinc-500">
-                    {new Date(savedDeck.created_at).toLocaleString()}
-                  </span>
-                </button>
+                  <button type="button" onClick={() => loadSavedDeck(savedDeck.id)} className="w-full text-left">
+                    <span className="block font-semibold text-zinc-950">{savedDeck.name}</span>
+                    <span className="text-xs text-zinc-500">
+                      {new Date(savedDeck.created_at).toLocaleString()}
+                    </span>
+                  </button>
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => duplicateSavedDeck(savedDeck.id)}
+                      className="inline-flex h-8 items-center gap-1 rounded-md border border-zinc-300 bg-white px-2 text-xs font-semibold text-zinc-800"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                      Copy
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deleteSavedDeck(savedDeck.id)}
+                      className="inline-flex h-8 items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 text-xs font-semibold text-red-700"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Delete
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
+          </section>
+
+          <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-950">
+                <Database className="h-4 w-4" />
+                Data Status
+              </h2>
+              <button
+                type="button"
+                onClick={refreshAdminStatus}
+                className="inline-flex h-8 items-center gap-1 rounded-md border border-zinc-300 bg-white px-2 text-xs font-semibold text-zinc-800"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Refresh
+              </button>
+            </div>
+            <dl className="mt-3 space-y-2 text-sm">
+              <div className="flex justify-between gap-3">
+                <dt className="text-zinc-500">Supabase</dt>
+                <dd className="font-semibold text-zinc-950">
+                  {adminStatus?.configured ? "Configured" : "Not configured"}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-zinc-500">Cached prints</dt>
+                <dd className="font-semibold text-zinc-950">
+                  {(adminStatus?.cardPrintCount ?? 0).toLocaleString()}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-zinc-500">Last ingest</dt>
+                <dd className="text-right font-semibold text-zinc-950">
+                  {adminStatus?.latestIngestRun
+                    ? `${adminStatus.latestIngestRun.status} - ${new Date(
+                        adminStatus.latestIngestRun.started_at,
+                      ).toLocaleDateString()}`
+                    : "None"}
+                </dd>
+              </div>
+            </dl>
+            <a
+              href="https://scryfall.com/docs/api/bulk-data"
+              target="_blank"
+              className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-zinc-700 hover:text-zinc-950"
+            >
+              Scryfall bulk data
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
           </section>
 
           <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">

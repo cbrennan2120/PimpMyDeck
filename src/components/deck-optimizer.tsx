@@ -22,7 +22,6 @@ import {
   Search,
   ShieldCheck,
   ShoppingCart,
-  Sparkles,
   TriangleAlert,
   Trash2,
   Upload,
@@ -39,6 +38,17 @@ import { applyVibeToDeck, VIBES } from "@/lib/pimp-engine";
 import { createClient } from "@/lib/supabase/client";
 import type { CardPrint, ResolvedDeck, ResolvedDeckCard, VibeId } from "@/lib/types";
 import type { DeckFormat } from "@/lib/formats";
+
+type ManaColor = "white" | "blue" | "black" | "red" | "green";
+
+const VIBE_MANA: Record<VibeId, ManaColor[]> = {
+  retro: ["white"],
+  showcase: ["blue"],
+  "secret-lair": ["black"],
+  foil: ["red"],
+  "cheap-foil": ["green"],
+  "max-flex": ["white", "blue", "black", "red", "green"],
+};
 
 const DEMO_DECK = `Commander:
 1 Atraxa, Praetors' Voice
@@ -161,18 +171,38 @@ function buyUrl(card: ResolvedDeckCard) {
 
 function Metric({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="min-w-0 rounded-md border border-black/10 bg-white px-4 py-3 shadow-sm">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+    <div className="pmd-rule-box min-w-0 rounded px-4 py-3">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#5a4c3c]">
         {label}
       </div>
-      <div className="mt-1 text-2xl font-semibold text-zinc-950">{value}</div>
+      <div className="mt-1 text-2xl font-semibold text-[#17130f]">{value}</div>
     </div>
+  );
+}
+
+function ManaPip({ colors }: { colors: ManaColor[] }) {
+  const labels: Record<ManaColor, string> = {
+    white: "W",
+    blue: "U",
+    black: "B",
+    red: "R",
+    green: "G",
+  };
+
+  return (
+    <span className="inline-flex items-center gap-1" aria-label={colors.join(", ")}>
+      {colors.map((color) => (
+        <span key={color} className={`pmd-mana-pip pmd-mana-${color}`} aria-hidden="true">
+          {labels[color]}
+        </span>
+      ))}
+    </span>
   );
 }
 
 function EmptyCard() {
   return (
-    <div className="flex aspect-[63/88] items-center justify-center rounded-md border border-dashed border-zinc-300 bg-zinc-100 text-zinc-400">
+    <div className="flex aspect-[63/88] items-center justify-center rounded border border-dashed border-[#5a4c3c] bg-[#f6eed7] text-[#7a6b58]">
       <ImageIcon className="h-8 w-8" />
     </div>
   );
@@ -189,7 +219,7 @@ function CardImage({ print, alt }: { print?: CardPrint; alt: string }) {
       src={src}
       alt={alt}
       loading="lazy"
-      className="aspect-[63/88] w-full rounded-md bg-zinc-100 object-cover shadow-[0_14px_40px_rgba(24,24,27,0.22)]"
+      className="aspect-[63/88] w-full rounded bg-[#f6eed7] object-cover shadow-[0_14px_30px_rgba(45,33,20,0.24)]"
     />
   );
 }
@@ -213,7 +243,7 @@ function PrintPicker({
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="inline-flex h-9 items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-900 transition hover:border-zinc-950"
+        className="inline-flex h-9 items-center gap-2 rounded border border-[#17130f] bg-[#fffaf0] px-3 text-sm font-semibold text-[#17130f] transition hover:bg-[#f6eed7]"
       >
         <Layers3 className="h-4 w-4" />
         {open ? "Condense prints" : `Browse ${card.candidates.length} prints`}
@@ -226,15 +256,15 @@ function PrintPicker({
               type="button"
               key={print.scryfallId}
               onClick={() => onSelect(print)}
-              className={`group rounded-md border p-1 text-left transition hover:-translate-y-0.5 ${
+              className={`group rounded border-2 p-1 text-left transition hover:-translate-y-0.5 ${
                 print.scryfallId === card.selectedPrint?.scryfallId
-                  ? "border-emerald-500 bg-emerald-50"
-                  : "border-zinc-200 bg-white"
+                  ? "border-[#28724d] bg-[#eef7ef]"
+                  : "border-[#17130f] bg-[#fffaf0]"
               }`}
               title={`${print.setName} #${print.collectorNumber}`}
             >
               <CardImage print={print} alt={print.name} />
-              <div className="mt-2 truncate px-1 text-[11px] font-semibold text-zinc-800">
+              <div className="mt-2 truncate px-1 text-[11px] font-semibold text-[#3c3329]">
                 {print.setCode.toUpperCase()} #{print.collectorNumber}
               </div>
             </button>
@@ -259,23 +289,24 @@ function DeckCard({
   const [correction, setCorrection] = useState(card.name);
 
   return (
-    <article className="grid gap-4 border-b border-zinc-200 py-5 lg:grid-cols-[150px_1fr]">
-      <div className="min-w-0">
+    <article className="pmd-card-frame my-4 grid gap-4 rounded-md p-3 lg:grid-cols-[138px_1fr]">
+      <div className="min-w-0 self-start">
         <CardImage print={selected} alt={card.name} />
       </div>
-      <div className="min-w-0 space-y-4">
+      <div className="min-w-0 space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h3 className="text-xl font-semibold leading-tight text-zinc-950">{card.name}</h3>
-              {card.userLocked && <Lock className="h-4 w-4 text-amber-600" />}
+              <h3 className="break-words text-lg font-semibold leading-tight text-[#17130f]">{card.name}</h3>
+              {card.userLocked && <Lock className="h-4 w-4 shrink-0 text-[#c99234]" />}
             </div>
-            <p className="mt-1 text-sm text-zinc-600">
-              {card.quantity}x - {card.section} - {selected ? `${selected.setName} #${selected.collectorNumber}` : "Needs review"}
+            <p className="mt-1 text-sm text-[#5a4c3c]">
+              {card.quantity}x - {card.section} -{" "}
+              {selected ? `${selected.setName} #${selected.collectorNumber}` : "Needs review"}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="rounded-md bg-zinc-950 px-2.5 py-1 text-xs font-semibold text-white">
+            <span className="rounded border border-[#17130f] bg-[#17130f] px-2.5 py-1 text-xs font-semibold text-[#fffaf0]">
               {price(selected)}
             </span>
             {outbound && (
@@ -283,7 +314,7 @@ function DeckCard({
                 href={outbound}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex h-9 items-center gap-2 rounded-md bg-emerald-600 px-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                className="inline-flex h-9 items-center gap-2 rounded border border-[#17130f] bg-[#28724d] px-3 text-sm font-semibold text-white transition hover:bg-[#1f5b3d]"
               >
                 <ShoppingCart className="h-4 w-4" />
                 Buy
@@ -292,18 +323,20 @@ function DeckCard({
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 text-xs font-medium">
-          <span className="rounded-md bg-fuchsia-100 px-2 py-1 text-fuchsia-800">{treatment(selected)}</span>
-          <span className="rounded-md bg-cyan-100 px-2 py-1 text-cyan-800">
+        <div className="pmd-rule-box flex flex-wrap gap-2 rounded p-2 text-xs font-medium">
+          <span className="rounded border border-[#17130f]/40 bg-[#f6eed7] px-2 py-1 text-[#17130f]">
+            {treatment(selected)}
+          </span>
+          <span className="rounded border border-[#1769a6]/50 bg-[#e6f0f8] px-2 py-1 text-[#124f7c]">
             {selected?.finishes.join(" / ") || "no finish data"}
           </span>
-          {card.reason && <span className="rounded-md bg-amber-100 px-2 py-1 text-amber-800">{card.reason}</span>}
+          {card.reason && <span className="rounded border border-[#c99234]/50 bg-[#fff4cf] px-2 py-1 text-[#5d4110]">{card.reason}</span>}
         </div>
 
         <PrintPicker card={card} onSelect={(print) => onSelect(card.id, print)} />
         {card.status === "unresolved" && (
           <form
-            className="flex flex-col gap-2 rounded-md border border-red-200 bg-red-50 p-3 sm:flex-row"
+            className="flex flex-col gap-2 rounded border border-[#b43a2f] bg-[#fff0ed] p-3 sm:flex-row"
             onSubmit={(event) => {
               event.preventDefault();
               onCorrect(card.id, correction);
@@ -312,12 +345,12 @@ function DeckCard({
             <input
               value={correction}
               onChange={(event) => setCorrection(event.target.value)}
-              className="h-9 min-w-0 flex-1 rounded-md border border-red-200 bg-white px-3 text-sm outline-none focus:border-red-600"
+              className="h-9 min-w-0 flex-1 rounded border border-[#b43a2f] bg-[#fffaf0] px-3 text-sm outline-none focus:border-[#8d2d25]"
               aria-label={`Correct card name for ${card.name}`}
             />
             <button
               type="submit"
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-red-700 px-3 text-sm font-semibold text-white"
+              className="inline-flex h-9 items-center justify-center gap-2 rounded border border-[#17130f] bg-[#b43a2f] px-3 text-sm font-semibold text-white"
             >
               <Search className="h-4 w-4" />
               Resolve name
@@ -342,7 +375,7 @@ function SwipeReview({
 
   if (!card) {
     return (
-      <section className="rounded-md border border-emerald-200 bg-emerald-50 p-5 text-emerald-900">
+      <section className="pmd-panel rounded-md p-4 text-[#28724d]">
         <div className="flex items-center gap-2 font-semibold">
           <Check className="h-5 w-5" />
           No review queue right now.
@@ -354,7 +387,7 @@ function SwipeReview({
   const candidates = card.candidates.slice(0, 3);
 
   return (
-    <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
+    <section className="pmd-panel rounded-md p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-zinc-950">Swipe Review</h2>
@@ -366,7 +399,7 @@ function SwipeReview({
           <button
             type="button"
             onClick={() => setIndex(Math.max(0, index - 1))}
-            className="grid h-9 w-9 place-items-center rounded-md border border-zinc-300"
+            className="grid h-9 w-9 place-items-center rounded border border-[#17130f] bg-[#fffaf0]"
             aria-label="Previous review card"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -374,7 +407,7 @@ function SwipeReview({
           <button
             type="button"
             onClick={() => setIndex(Math.min(queue.length - 1, index + 1))}
-            className="grid h-9 w-9 place-items-center rounded-md border border-zinc-300"
+            className="grid h-9 w-9 place-items-center rounded border border-[#17130f] bg-[#fffaf0]"
             aria-label="Next review card"
           >
             <ChevronRight className="h-4 w-4" />
@@ -383,7 +416,7 @@ function SwipeReview({
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         {candidates.length === 0 && (
-          <div className="rounded-md border border-dashed border-zinc-300 p-5 text-sm text-zinc-600">
+          <div className="rounded border border-dashed border-[#5a4c3c] p-5 text-sm text-[#5a4c3c]">
             No candidates came back from Scryfall. Check the spelling in the source decklist.
           </div>
         )}
@@ -392,7 +425,7 @@ function SwipeReview({
             type="button"
             key={print.scryfallId}
             onClick={() => onSelect(card.id, print)}
-            className="rounded-md border border-zinc-200 bg-zinc-50 p-2 text-left transition hover:border-emerald-500 hover:bg-emerald-50"
+            className="rounded border-2 border-[#17130f] bg-[#fffaf0] p-2 text-left transition hover:bg-[#eef7ef]"
           >
             <CardImage print={print} alt={print.name} />
             <div className="mt-2 text-sm font-semibold text-zinc-950">{print.setName}</div>
@@ -868,8 +901,8 @@ export default function DeckOptimizer() {
   );
 
   return (
-    <main className="min-h-screen bg-[#f7f7f2] text-zinc-950">
-      <section className="border-b border-black/10 bg-white">
+    <main className="min-h-screen text-[#17130f]">
+      <section className="border-b-2 border-[#17130f] bg-[rgba(255,250,240,0.86)]">
         <div className="mx-auto grid max-w-7xl gap-8 px-5 py-8 lg:grid-cols-[0.95fr_1.05fr] lg:px-8">
           <div className="flex flex-col justify-between gap-8">
             <div>
@@ -895,7 +928,7 @@ export default function DeckOptimizer() {
             </div>
           </div>
 
-          <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4 shadow-sm">
+          <div className="pmd-card-frame rounded-md p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
               <label htmlFor="decklist" className="text-sm font-semibold text-zinc-950">
                 Decklist
@@ -903,7 +936,7 @@ export default function DeckOptimizer() {
               <button
                 type="button"
                 onClick={() => setDeckText(DEMO_DECK)}
-                className="inline-flex h-8 items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-xs font-semibold text-zinc-800"
+                className="inline-flex h-8 items-center gap-2 rounded border border-[#17130f] bg-[#fffaf0] px-3 text-xs font-semibold text-[#17130f]"
               >
                 <Upload className="h-3.5 w-3.5" />
                 Load demo
@@ -914,7 +947,7 @@ export default function DeckOptimizer() {
               value={deckText}
               onChange={(event) => setDeckText(event.target.value)}
               spellCheck={false}
-              className="h-56 w-full resize-none rounded-md border border-zinc-300 bg-white p-3 font-mono text-sm leading-6 outline-none transition focus:border-zinc-950"
+              className="h-56 w-full resize-none rounded border-2 border-[#17130f] bg-[#fffaf0] p-3 font-mono text-sm leading-6 outline-none transition focus:border-[#1769a6]"
             />
             <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_220px]">
               <label className="block">
@@ -924,7 +957,7 @@ export default function DeckOptimizer() {
                 <input
                   value={deckName}
                   onChange={(event) => setDeckName(event.target.value)}
-                  className="mt-1 h-10 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-zinc-950"
+                  className="mt-1 h-10 w-full rounded border border-[#17130f] bg-[#fffaf0] px-3 text-sm outline-none focus:border-[#1769a6]"
                 />
               </label>
               <label className="block">
@@ -934,7 +967,7 @@ export default function DeckOptimizer() {
                 <select
                   value={deckFormat}
                   onChange={(event) => setDeckFormat(event.target.value as DeckFormat)}
-                  className="mt-1 h-10 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-zinc-950"
+                  className="mt-1 h-10 w-full rounded border border-[#17130f] bg-[#fffaf0] px-3 text-sm outline-none focus:border-[#1769a6]"
                 >
                   {DECK_FORMATS.map((format) => (
                     <option key={format.id} value={format.id}>
@@ -956,7 +989,7 @@ export default function DeckOptimizer() {
                 type="button"
                 onClick={() => resolveDeck()}
                 disabled={loading}
-                className="inline-flex h-11 items-center gap-2 rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-11 items-center gap-2 rounded border-2 border-[#17130f] bg-[#17130f] px-4 text-sm font-semibold text-[#fffaf0] transition hover:bg-[#25211d] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
                 Resolve and pimp
@@ -964,7 +997,7 @@ export default function DeckOptimizer() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="inline-flex h-11 items-center gap-2 rounded-md border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-900 transition hover:border-zinc-950"
+                className="inline-flex h-11 items-center gap-2 rounded border border-[#17130f] bg-[#fffaf0] px-4 text-sm font-semibold text-[#17130f] transition hover:bg-[#f6eed7]"
               >
                 <Upload className="h-4 w-4" />
                 Upload .txt
@@ -978,7 +1011,7 @@ export default function DeckOptimizer() {
         </div>
       </section>
 
-      <section className="sticky top-0 z-20 border-b border-black/10 bg-[#f7f7f2]/95 backdrop-blur">
+      <section className="sticky top-0 z-20 border-b-2 border-[#17130f] bg-[rgba(247,243,231,0.95)] backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-5 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-8">
           <div className="flex gap-2 overflow-x-auto pb-1">
             {VIBES.map((vibe) => (
@@ -986,14 +1019,14 @@ export default function DeckOptimizer() {
                 type="button"
                 key={vibe.id}
                 onClick={() => applyVibe(vibe.id)}
-                className={`inline-flex h-10 shrink-0 items-center gap-2 rounded-md border px-3 text-sm font-semibold transition ${
+                className={`inline-flex h-10 shrink-0 items-center gap-2 rounded border-2 px-3 text-sm font-semibold transition ${
                   activeVibe === vibe.id
-                    ? "border-zinc-950 bg-zinc-950 text-white"
-                    : "border-zinc-300 bg-white text-zinc-800 hover:border-zinc-950"
+                    ? "border-[#17130f] bg-[#17130f] text-[#fffaf0]"
+                    : "border-[#17130f] bg-[#fffaf0] text-[#17130f] hover:bg-[#f6eed7]"
                 }`}
                 title={vibe.description}
               >
-                <Sparkles className="h-4 w-4" />
+                <ManaPip colors={VIBE_MANA[vibe.id]} />
                 {vibe.shortLabel}
               </button>
             ))}
@@ -1001,7 +1034,7 @@ export default function DeckOptimizer() {
               type="button"
               onClick={() => applyVibe(activeVibe, true)}
               disabled={!deck}
-              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 text-sm font-semibold text-amber-900 disabled:opacity-50"
+              className="inline-flex h-10 shrink-0 items-center gap-2 rounded border border-[#c99234] bg-[#fff4cf] px-3 text-sm font-semibold text-[#5d4110] disabled:opacity-50"
             >
               <ArrowRight className="h-4 w-4" />
               Reapply all
@@ -1010,7 +1043,7 @@ export default function DeckOptimizer() {
               type="button"
               onClick={lockAllSelected}
               disabled={!deck}
-              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-900 disabled:opacity-50"
+              className="inline-flex h-10 shrink-0 items-center gap-2 rounded border border-[#17130f] bg-[#fffaf0] px-3 text-sm font-semibold text-[#17130f] disabled:opacity-50"
             >
               <Lock className="h-4 w-4" />
               Lock all
@@ -1019,7 +1052,7 @@ export default function DeckOptimizer() {
               type="button"
               onClick={clearLocks}
               disabled={!deck}
-              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-900 disabled:opacity-50"
+              className="inline-flex h-10 shrink-0 items-center gap-2 rounded border border-[#17130f] bg-[#fffaf0] px-3 text-sm font-semibold text-[#17130f] disabled:opacity-50"
             >
               <CircleSlash className="h-4 w-4" />
               Clear locks
@@ -1033,7 +1066,7 @@ export default function DeckOptimizer() {
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search cards or sets"
-                className="h-10 w-full rounded-md border border-zinc-300 bg-white pl-9 pr-3 text-sm outline-none focus:border-zinc-950 sm:w-64"
+                className="h-10 w-full rounded border border-[#17130f] bg-[#fffaf0] pl-9 pr-3 text-sm outline-none focus:border-[#1769a6] sm:w-64"
               />
             </label>
             <button
@@ -1043,7 +1076,7 @@ export default function DeckOptimizer() {
               className={`inline-flex h-10 items-center justify-center gap-2 rounded-md border px-3 text-sm font-semibold disabled:opacity-50 ${
                 changedOnly
                   ? "border-zinc-950 bg-zinc-950 text-white"
-                  : "border-zinc-300 bg-white text-zinc-900"
+                  : "border-[#17130f] bg-[#fffaf0] text-[#17130f]"
               }`}
             >
               Changed only
@@ -1055,7 +1088,7 @@ export default function DeckOptimizer() {
               className={`inline-flex h-10 items-center justify-center gap-2 rounded-md border px-3 text-sm font-semibold disabled:opacity-50 ${
                 reviewOnly
                   ? "border-amber-700 bg-amber-700 text-white"
-                  : "border-zinc-300 bg-white text-zinc-900"
+                  : "border-[#17130f] bg-[#fffaf0] text-[#17130f]"
               }`}
             >
               Review {cardsNeedingReview.length}
@@ -1064,7 +1097,7 @@ export default function DeckOptimizer() {
               value={selectedSection}
               onChange={(event) => setSelectedSection(event.target.value)}
               disabled={!deck}
-              className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-900 outline-none disabled:opacity-50"
+              className="h-10 rounded border border-[#17130f] bg-[#fffaf0] px-3 text-sm font-semibold text-[#17130f] outline-none disabled:opacity-50"
             >
               <option value="All">All sections</option>
               {sections.map((section) => (
@@ -1077,7 +1110,7 @@ export default function DeckOptimizer() {
               type="button"
               onClick={() => navigator.clipboard.writeText(exportText)}
               disabled={!deck}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-900 disabled:opacity-50"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded border border-[#17130f] bg-[#fffaf0] px-3 text-sm font-semibold text-[#17130f] disabled:opacity-50"
             >
               <Download className="h-4 w-4" />
               Copy export
@@ -1086,7 +1119,7 @@ export default function DeckOptimizer() {
               type="button"
               onClick={() => navigator.clipboard.writeText(changedExportText)}
               disabled={!deck || cardsChanged.length === 0}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-900 disabled:opacity-50"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded border border-[#17130f] bg-[#fffaf0] px-3 text-sm font-semibold text-[#17130f] disabled:opacity-50"
             >
               <Copy className="h-4 w-4" />
               Changed
@@ -1095,7 +1128,7 @@ export default function DeckOptimizer() {
               type="button"
               onClick={() => saveDeck(false)}
               disabled={!deck || saving || !authUser}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-emerald-600 px-3 text-sm font-semibold text-white disabled:opacity-50"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded border border-[#17130f] bg-[#28724d] px-3 text-sm font-semibold text-white disabled:opacity-50"
             >
               <Save className="h-4 w-4" />
               {saving ? "Saving" : "Save"}
@@ -1104,7 +1137,7 @@ export default function DeckOptimizer() {
               type="button"
               onClick={() => saveDeck(true)}
               disabled={!deck || !activeDeckId || saving || !authUser}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-emerald-600 bg-white px-3 text-sm font-semibold text-emerald-700 disabled:opacity-50"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded border border-[#28724d] bg-[#fffaf0] px-3 text-sm font-semibold text-[#28724d] disabled:opacity-50"
             >
               Overwrite
             </button>
@@ -1113,7 +1146,7 @@ export default function DeckOptimizer() {
       </section>
 
       <div className="mx-auto grid max-w-7xl gap-6 px-5 py-6 lg:grid-cols-[1fr_340px] lg:px-8">
-        <section className="rounded-md border border-zinc-200 bg-white px-4 shadow-sm">
+        <section className="pmd-binder-grid rounded-md border-2 border-[#17130f] bg-[rgba(255,250,240,0.55)] px-3 shadow-sm">
           {!deck && (
             <div className="grid min-h-[460px] place-items-center py-16 text-center">
               <div className="max-w-md">
@@ -1152,7 +1185,7 @@ export default function DeckOptimizer() {
         <aside className="space-y-4">
           {deck && <SwipeReview cards={deck.cards} onSelect={selectPrint} />}
 
-          <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
+          <section className="pmd-panel rounded-md p-4">
             <div className="flex items-center gap-2 text-sm font-semibold text-zinc-950">
               <ShieldCheck className="h-4 w-4" />
               Account
@@ -1166,7 +1199,7 @@ export default function DeckOptimizer() {
                   type="button"
                   onClick={signOut}
                   disabled={authLoading}
-                  className="inline-flex h-10 w-full items-center justify-center rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-900 disabled:opacity-50"
+                  className="inline-flex h-10 w-full items-center justify-center rounded border border-[#17130f] bg-[#fffaf0] px-3 text-sm font-semibold text-[#17130f] disabled:opacity-50"
                 >
                   Sign out
                 </button>
@@ -1181,13 +1214,13 @@ export default function DeckOptimizer() {
                   value={authEmail}
                   onChange={(event) => setAuthEmail(event.target.value)}
                   placeholder="you@example.com"
-                  className="h-10 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-zinc-950"
+                  className="h-10 w-full rounded border border-[#17130f] bg-[#fffaf0] px-3 text-sm outline-none focus:border-[#1769a6]"
                 />
                 <button
                   type="button"
                   onClick={sendMagicLink}
                   disabled={authLoading}
-                  className="inline-flex h-10 w-full items-center justify-center rounded-md bg-zinc-950 px-3 text-sm font-semibold text-white disabled:opacity-50"
+                  className="inline-flex h-10 w-full items-center justify-center rounded border border-[#17130f] bg-[#17130f] px-3 text-sm font-semibold text-[#fffaf0] disabled:opacity-50"
                 >
                   {authLoading ? "Sending..." : "Send sign-in link"}
                 </button>
@@ -1196,7 +1229,7 @@ export default function DeckOptimizer() {
             )}
           </section>
 
-          <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
+          <section className="pmd-panel rounded-md p-4">
             <h2 className="text-sm font-semibold text-zinc-950">Deck Format</h2>
             <dl className="mt-3 space-y-2 text-sm">
               <div className="flex justify-between gap-3">
@@ -1217,7 +1250,7 @@ export default function DeckOptimizer() {
           </section>
 
           {deck && (
-            <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
+            <section className="pmd-panel rounded-md p-4">
               <div className="flex items-center gap-2 text-sm font-semibold text-zinc-950">
                 <TriangleAlert className="h-4 w-4 text-amber-600" />
                 Format Warnings
@@ -1238,10 +1271,10 @@ export default function DeckOptimizer() {
             </section>
           )}
 
-          <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
+          <section className="pmd-panel rounded-md p-4">
             <h2 className="text-sm font-semibold text-zinc-950">Deck Value</h2>
             <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
-              <div className="rounded-md bg-zinc-50 p-3">
+              <div className="pmd-rule-box rounded p-3">
                 <dt className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">
                   Selected
                 </dt>
@@ -1249,7 +1282,7 @@ export default function DeckOptimizer() {
                   {money(summary.selectedTotal)}
                 </dd>
               </div>
-              <div className="rounded-md bg-zinc-50 p-3">
+              <div className="pmd-rule-box rounded p-3">
                 <dt className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">
                   Delta
                 </dt>
@@ -1257,7 +1290,7 @@ export default function DeckOptimizer() {
                   {money(summary.delta)}
                 </dd>
               </div>
-              <div className="rounded-md bg-zinc-50 p-3">
+              <div className="pmd-rule-box rounded p-3">
                 <dt className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">
                   Changed
                 </dt>
@@ -1265,7 +1298,7 @@ export default function DeckOptimizer() {
                   {summary.changedCards}
                 </dd>
               </div>
-              <div className="rounded-md bg-zinc-50 p-3">
+              <div className="pmd-rule-box rounded p-3">
                 <dt className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">
                   Locked
                 </dt>
@@ -1276,14 +1309,14 @@ export default function DeckOptimizer() {
             </dl>
           </section>
 
-          <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
+          <section className="pmd-panel rounded-md p-4">
             <h2 className="text-sm font-semibold text-zinc-950">Quick Actions</h2>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => navigator.clipboard.writeText(csvExportText)}
                 disabled={!deck}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-900 disabled:opacity-50"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded border border-[#17130f] bg-[#fffaf0] px-3 text-sm font-semibold text-[#17130f] disabled:opacity-50"
               >
                 <Download className="h-4 w-4" />
                 CSV
@@ -1292,7 +1325,7 @@ export default function DeckOptimizer() {
                 type="button"
                 onClick={() => navigator.clipboard.writeText(changedBuyLinks)}
                 disabled={!deck || !changedBuyLinks}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-900 disabled:opacity-50"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded border border-[#17130f] bg-[#fffaf0] px-3 text-sm font-semibold text-[#17130f] disabled:opacity-50"
               >
                 <ShoppingCart className="h-4 w-4" />
                 Buy links
@@ -1301,7 +1334,7 @@ export default function DeckOptimizer() {
                 type="button"
                 onClick={renameSavedDeck}
                 disabled={!activeDeckId || saving || !authUser}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-900 disabled:opacity-50"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded border border-[#17130f] bg-[#fffaf0] px-3 text-sm font-semibold text-[#17130f] disabled:opacity-50"
               >
                 <Pencil className="h-4 w-4" />
                 Rename
@@ -1310,7 +1343,7 @@ export default function DeckOptimizer() {
                 type="button"
                 onClick={() => duplicateSavedDeck()}
                 disabled={!activeDeckId || saving || !authUser}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-900 disabled:opacity-50"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded border border-[#17130f] bg-[#fffaf0] px-3 text-sm font-semibold text-[#17130f] disabled:opacity-50"
               >
                 <Copy className="h-4 w-4" />
                 Duplicate
@@ -1318,7 +1351,7 @@ export default function DeckOptimizer() {
             </div>
           </section>
 
-          <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
+          <section className="pmd-panel rounded-md p-4">
             <div className="flex items-center gap-2 text-sm font-semibold text-zinc-950">
               <BadgeDollarSign className="h-4 w-4" />
               Affiliate disclosure
@@ -1328,7 +1361,7 @@ export default function DeckOptimizer() {
             </p>
           </section>
 
-          <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
+          <section className="pmd-panel rounded-md p-4">
             <h2 className="text-sm font-semibold text-zinc-950">Saved Decks</h2>
             <div className="mt-3 space-y-2">
               {savedDecksLoading && (
@@ -1360,7 +1393,7 @@ export default function DeckOptimizer() {
                     <button
                       type="button"
                       onClick={() => duplicateSavedDeck(savedDeck.id)}
-                      className="inline-flex h-8 items-center gap-1 rounded-md border border-zinc-300 bg-white px-2 text-xs font-semibold text-zinc-800"
+                      className="inline-flex h-8 items-center gap-1 rounded border border-[#17130f] bg-[#fffaf0] px-2 text-xs font-semibold text-[#17130f]"
                     >
                       <Copy className="h-3.5 w-3.5" />
                       Copy
@@ -1379,7 +1412,7 @@ export default function DeckOptimizer() {
             </div>
           </section>
 
-          <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
+          <section className="pmd-panel rounded-md p-4">
             <div className="flex items-center justify-between gap-3">
               <h2 className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-950">
                 <Database className="h-4 w-4" />
@@ -1388,7 +1421,7 @@ export default function DeckOptimizer() {
               <button
                 type="button"
                 onClick={refreshAdminStatus}
-                className="inline-flex h-8 items-center gap-1 rounded-md border border-zinc-300 bg-white px-2 text-xs font-semibold text-zinc-800"
+                className="inline-flex h-8 items-center gap-1 rounded border border-[#17130f] bg-[#fffaf0] px-2 text-xs font-semibold text-[#17130f]"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
                 Refresh
@@ -1428,9 +1461,9 @@ export default function DeckOptimizer() {
             </a>
           </section>
 
-          <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
+          <section className="pmd-panel rounded-md p-4">
             <h2 className="text-sm font-semibold text-zinc-950">Export Preview</h2>
-            <pre className="mt-3 max-h-80 overflow-auto rounded-md bg-zinc-950 p-3 text-xs leading-5 text-zinc-100">
+            <pre className="mt-3 max-h-80 overflow-auto rounded bg-[#17130f] p-3 text-xs leading-5 text-[#fffaf0]">
               {exportText || "Resolve a deck to generate set-code export lines."}
             </pre>
           </section>

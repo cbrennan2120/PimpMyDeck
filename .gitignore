@@ -50,3 +50,6 @@ next-env.d.ts
 
 # generated local Scryfall cache
 /data/
+
+# local visual brainstorming companion
+/.superpowers/

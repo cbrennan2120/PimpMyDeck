@@ -1,5 +1,6 @@
 import { deckCardRow, cardPrintRow, uniqueOracleRows, uniquePrintsFromDeck } from "@/lib/supabase/deck-persistence";
 import { createClient } from "@/lib/supabase/server";
+import { DEFAULT_FORMAT } from "@/lib/formats";
 import type { ResolvedDeckCard } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
 
   const deckPayload = {
       name: body.name?.trim() || "Pimped Deck",
-      format: body.format ?? "commander",
+      format: body.format ?? DEFAULT_FORMAT,
       source_text: { text: body.sourceText ?? "" },
   };
 

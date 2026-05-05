@@ -30,8 +30,10 @@ import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { changedCards, reviewCards, sectionNames, toCsvRows } from "@/lib/deck-actions";
 import { toExportLine } from "@/lib/deck-parser";
 import { deckSummary, money } from "@/lib/deck-summary";
+import { DEFAULT_FORMAT, DECK_FORMATS, formatLabel, isSixtyCardFormat } from "@/lib/formats";
 import { applyVibeToDeck, VIBES } from "@/lib/pimp-engine";
 import type { CardPrint, ResolvedDeck, ResolvedDeckCard, VibeId } from "@/lib/types";
+import type { DeckFormat } from "@/lib/formats";
 
 const DEMO_DECK = `Commander:
 1 Atraxa, Praetors' Voice
@@ -412,6 +414,10 @@ export default function DeckOptimizer() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deckName, setDeckName] = useState("Pimped Deck");
+  const [deckFormat, setDeckFormat] = useState<DeckFormat>(() => {
+    if (typeof window === "undefined") return DEFAULT_FORMAT;
+    return (localStorage.getItem("pmd.format") as DeckFormat | null) ?? DEFAULT_FORMAT;
+  });
   const [activeDeckId, setActiveDeckId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [changedOnly, setChangedOnly] = useState(false);
@@ -433,6 +439,10 @@ export default function DeckOptimizer() {
   useEffect(() => {
     localStorage.setItem("pmd.vibe", activeVibe);
   }, [activeVibe]);
+
+  useEffect(() => {
+    localStorage.setItem("pmd.format", deckFormat);
+  }, [deckFormat]);
 
   useEffect(() => {
     void refreshSavedDecks();
@@ -601,7 +611,7 @@ export default function DeckOptimizer() {
         body: JSON.stringify({
           id: overwrite ? activeDeckId : undefined,
           name: deckName,
-          format: "commander",
+          format: deckFormat,
           sourceText: deckText,
           cards: deck.cards,
         }),
@@ -697,7 +707,7 @@ export default function DeckOptimizer() {
     }
 
     const payload = (await response.json()) as {
-      deck: { id: string; name: string; source_text?: { text?: string } };
+      deck: { id: string; name: string; format: DeckFormat; source_text?: { text?: string } };
       cards: Array<{
         id: string;
         quantity: number;
@@ -724,6 +734,7 @@ export default function DeckOptimizer() {
     });
     setActiveDeckId(payload.deck.id);
     setDeckName(payload.deck.name);
+    setDeckFormat(payload.deck.format ?? DEFAULT_FORMAT);
     setDeckText(payload.deck.source_text?.text ?? restoredCards.map((card) => card.raw).join("\n"));
     setDeck({
       cards: restoredCards,
@@ -779,7 +790,7 @@ export default function DeckOptimizer() {
 
             <div className="grid grid-cols-3 gap-3">
               <Metric label="Cards" value={deck?.stats.totalLines ?? "0"} />
-              <Metric label="Resolved" value={deck?.stats.resolved ?? "0"} />
+              <Metric label="Copies" value={deck?.stats.totalQuantity ?? "0"} />
               <Metric label="Value" value={deck ? money(summary.selectedTotal) : "$0"} />
             </div>
           </div>
@@ -805,6 +816,34 @@ export default function DeckOptimizer() {
               spellCheck={false}
               className="h-56 w-full resize-none rounded-md border border-zinc-300 bg-white p-3 font-mono text-sm leading-6 outline-none transition focus:border-zinc-950"
             />
+            <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_220px]">
+              <label className="block">
+                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">
+                  Deck name
+                </span>
+                <input
+                  value={deckName}
+                  onChange={(event) => setDeckName(event.target.value)}
+                  className="mt-1 h-10 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-zinc-950"
+                />
+              </label>
+              <label className="block">
+                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">
+                  Format
+                </span>
+                <select
+                  value={deckFormat}
+                  onChange={(event) => setDeckFormat(event.target.value as DeckFormat)}
+                  className="mt-1 h-10 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-zinc-950"
+                >
+                  {DECK_FORMATS.map((format) => (
+                    <option key={format.id} value={format.id}>
+                      {format.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <input
                 ref={fileInputRef}
@@ -888,15 +927,6 @@ export default function DeckOptimizer() {
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row">
-            <label className="relative block">
-              <Pencil className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-              <input
-                value={deckName}
-                onChange={(event) => setDeckName(event.target.value)}
-                placeholder="Deck name"
-                className="h-10 w-full rounded-md border border-zinc-300 bg-white pl-9 pr-3 text-sm outline-none focus:border-zinc-950 sm:w-52"
-              />
-            </label>
             <label className="relative block">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
               <input
@@ -1021,6 +1051,26 @@ export default function DeckOptimizer() {
 
         <aside className="space-y-4">
           {deck && <SwipeReview cards={deck.cards} onSelect={selectPrint} />}
+
+          <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
+            <h2 className="text-sm font-semibold text-zinc-950">Deck Format</h2>
+            <dl className="mt-3 space-y-2 text-sm">
+              <div className="flex justify-between gap-3">
+                <dt className="text-zinc-500">Selected</dt>
+                <dd className="font-semibold text-zinc-950">{formatLabel(deckFormat)}</dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-zinc-500">Cards</dt>
+                <dd className="font-semibold text-zinc-950">
+                  {deck?.stats.totalQuantity ?? 0}
+                  {isSixtyCardFormat(deckFormat) ? " / 60+" : deckFormat === "commander" ? " / 100" : ""}
+                </dd>
+              </div>
+            </dl>
+            <p className="mt-3 text-xs leading-5 text-zinc-500">
+              Multiple-copy rows like 4 Lightning Bolt stay as one card slot with quantity 4.
+            </p>
+          </section>
 
           <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
             <h2 className="text-sm font-semibold text-zinc-950">Deck Value</h2>

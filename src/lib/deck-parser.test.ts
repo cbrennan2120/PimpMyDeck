@@ -22,6 +22,23 @@ Maybeboard
       expect.objectContaining({ quantity: 1, name: "Birds of Paradise", section: "Maybeboard" }),
     ]);
   });
+
+  it("preserves multiple-copy 60-card deck quantities", () => {
+    const parsed = parseDecklist(`Deck
+4 Lightning Bolt
+4 Monastery Swiftspear
+2 Steam Vents
+
+Sideboard
+3 Spell Pierce`);
+
+    expect(parsed).toEqual([
+      expect.objectContaining({ quantity: 4, name: "Lightning Bolt", section: "Main" }),
+      expect.objectContaining({ quantity: 4, name: "Monastery Swiftspear", section: "Main" }),
+      expect.objectContaining({ quantity: 2, name: "Steam Vents", section: "Main" }),
+      expect.objectContaining({ quantity: 3, name: "Spell Pierce", section: "Sideboard" }),
+    ]);
+  });
 });
 
 describe("toExportLine", () => {

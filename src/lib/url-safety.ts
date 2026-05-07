@@ -1,4 +1,9 @@
-const TCGPLAYER_HOSTS = new Set(["tcgplayer.com", "www.tcgplayer.com", "shop.tcgplayer.com"]);
+const TCGPLAYER_HOSTS = new Set([
+  "tcgplayer.com",
+  "www.tcgplayer.com",
+  "shop.tcgplayer.com",
+  "partner.tcgplayer.com",
+]);
 
 export function safeRelativePath(value: string | null | undefined) {
   if (!value) return "/";

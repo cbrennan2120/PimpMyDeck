@@ -26,6 +26,10 @@ type DbPrint = {
   pimp_score?: number | string | null;
 };
 
+type DbOracleCard = {
+  oracle_id: string;
+};
+
 export function cardPrintFromRow(row: DbPrint): CardPrint {
   return {
     scryfallId: row.scryfall_id,
@@ -60,12 +64,29 @@ export async function createSupabasePrintCache(
   const uniqueNames = [...new Set(names.map((name) => name.trim()).filter(Boolean))];
   if (uniqueNames.length === 0) return createPrintCache([]);
 
-  const query = supabase.from("card_prints") as {
+  const oracleQuery = supabase.from("oracle_cards") as {
+    select(columns: string): {
+      in(
+        column: string,
+        values: string[],
+      ): PromiseLike<{ data: DbOracleCard[] | null; error: { message: string } | null }>;
+    };
+  };
+  const { data: oracleCards, error: oracleError } = await oracleQuery
+    .select("oracle_id")
+    .in("name", uniqueNames);
+
+  if (oracleError) throw new Error(oracleError.message);
+
+  const oracleIds = [...new Set((oracleCards ?? []).map((card) => card.oracle_id))];
+  if (oracleIds.length === 0) return createPrintCache([]);
+
+  const printQuery = supabase.from("card_prints") as {
     select(columns: string): {
       in(column: string, values: string[]): PromiseLike<{ data: DbPrint[] | null; error: { message: string } | null }>;
     };
   };
-  const { data, error } = await query.select("*").in("name", uniqueNames);
+  const { data, error } = await printQuery.select("*").in("oracle_id", oracleIds);
 
   if (error) throw new Error(error.message);
   return createPrintCache((data ?? []).map(cardPrintFromRow));

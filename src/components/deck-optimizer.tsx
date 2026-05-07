@@ -11,7 +11,6 @@ import {
   Database,
   Download,
   ExternalLink,
-  Gem,
   Image as ImageIcon,
   Layers3,
   Loader2,
@@ -27,6 +26,7 @@ import {
   Upload,
   Wand2,
 } from "lucide-react";
+import Image from "next/image";
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { changedCards, reviewCards, sectionNames, toCsvRows } from "@/lib/deck-actions";
 import { toExportLine } from "@/lib/deck-parser";
@@ -156,6 +156,50 @@ function treatment(print?: CardPrint) {
   if (print.frame === "1997") return "retro frame";
   if (print.finishes.includes("foil")) return "foil ready";
   return print.setName;
+}
+
+function deckArtRating(cards: ResolvedDeckCard[]) {
+  if (cards.length === 0) {
+    return {
+      score: 0,
+      label: "Upload a deck to score it",
+      detail: "We grade the selected printings for foils, retro frames, borderless art, promos, and other premium treatments.",
+    };
+  }
+
+  const total = cards.reduce((sum, card) => sum + card.quantity, 0);
+  const points = cards.reduce((sum, card) => {
+    const print = card.selectedPrint;
+    if (!print) return sum;
+
+    let cardScore = 0;
+    if (print.finishes.includes("foil")) cardScore += 1.5;
+    if (print.frame === "1993" || print.frame === "1997") cardScore += 1;
+    if (print.borderColor === "borderless") cardScore += 1.25;
+    if (print.frameEffects.length > 0) cardScore += 1;
+    if (print.promo || print.setCode === "sld") cardScore += 1.25;
+    if (Number(print.prices.usd_foil ?? print.prices.usd ?? 0) >= 20) cardScore += 0.75;
+
+    return sum + Math.min(cardScore, 5) * card.quantity;
+  }, 0);
+
+  const score = Math.round((points / Math.max(total, 1)) * 20);
+  const label =
+    score >= 90
+      ? "Mythic flex"
+      : score >= 75
+        ? "Table trophy"
+        : score >= 55
+          ? "Respectable shine"
+          : score >= 35
+            ? "Needs more sparkle"
+            : "Fresh out of sleeves";
+
+  return {
+    score,
+    label,
+    detail: `${cards.filter((card) => card.userLocked).length} locked picks, ${changedCards(cards).length} changed cards, ${cards.filter((card) => card.selectedPrint?.finishes.includes("foil")).length} foil-ready slots.`,
+  };
 }
 
 function buyUrl(card: ResolvedDeckCard) {
@@ -540,6 +584,7 @@ export default function DeckOptimizer() {
   }, [changedOnly, deck, query, reviewOnly, selectedSection]);
 
   const summary = useMemo(() => deckSummary(deck?.cards ?? []), [deck]);
+  const artRating = useMemo(() => deckArtRating(deck?.cards ?? []), [deck]);
   const sections = useMemo(() => (deck ? sectionNames(deck.cards) : []), [deck]);
   const cardsNeedingReview = useMemo(() => reviewCards(deck?.cards ?? []), [deck]);
   const cardsChanged = useMemo(() => changedCards(deck?.cards ?? []), [deck]);
@@ -903,29 +948,45 @@ export default function DeckOptimizer() {
   return (
     <main className="min-h-screen text-[#17130f]">
       <section className="border-b-2 border-[#17130f] bg-[rgba(255,250,240,0.86)]">
-        <div className="mx-auto grid max-w-7xl gap-8 px-5 py-8 lg:grid-cols-[0.95fr_1.05fr] lg:px-8">
-          <div className="flex flex-col justify-between gap-8">
-            <div>
-              <div className="flex items-center gap-3">
-                <div className="grid h-11 w-11 place-items-center rounded-md bg-zinc-950 text-white">
-                  <Gem className="h-6 w-6" />
+        <div className="mx-auto grid max-w-7xl gap-8 px-5 py-6 lg:grid-cols-[0.92fr_1.08fr] lg:px-8">
+          <div className="flex flex-col justify-between gap-5">
+            <div className="space-y-5">
+              <div className="mx-auto hidden max-w-[430px] md:block lg:mx-0">
+                <Image
+                  src="/pimp-my-deck-logo.png"
+                  alt="Pimp My Deck MTG deck upgrader"
+                  width={900}
+                  height={900}
+                  priority
+                  className="h-auto w-full drop-shadow-[0_18px_35px_rgba(35,18,62,0.24)]"
+                />
+              </div>
+              <div>
+                <h1 className="max-w-2xl text-4xl font-semibold tracking-normal text-zinc-950 sm:text-5xl">
+                  Turn any MTG decklist into the coolest version of itself.
+                </h1>
+                <p className="mt-3 max-w-2xl text-base leading-7 text-zinc-700 sm:text-lg">
+                  Paste a Commander, Modern, Standard, or kitchen-table list. We find every
+                  printing, surface foils, retro frames, Secret Lairs, borderless art, and let
+                  you lock the versions worth showing off.
+                </p>
+                <div className="mt-4 grid gap-2 text-sm font-semibold text-[#3c3329] sm:grid-cols-3">
+                  <div className="rounded border border-[#17130f] bg-[#fffaf0] px-3 py-2">
+                    1. Paste your list
+                  </div>
+                  <div className="rounded border border-[#17130f] bg-[#fffaf0] px-3 py-2">
+                    2. Pick a vibe
+                  </div>
+                  <div className="rounded border border-[#17130f] bg-[#fffaf0] px-3 py-2">
+                    3. Buy or export
+                  </div>
                 </div>
-                <div>
-                  <h1 className="text-4xl font-semibold tracking-normal text-zinc-950 sm:text-5xl">
-                    Pimp My Deck
-                  </h1>
-                  <p className="mt-2 max-w-xl text-base leading-7 text-zinc-600">
-                    Paste a Magic decklist, auto-match every card to premium Scryfall prints, then lock the versions worth showing off.
-                  </p>
-                </div>
+                <p className="mt-3 max-w-xl text-sm leading-6 text-[#5a4c3c]">
+                  Built for blinging decks, not rebuilding them: same cards, better printings.
+                </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <Metric label="Cards" value={deck?.stats.totalLines ?? "0"} />
-              <Metric label="Copies" value={deck?.stats.totalQuantity ?? "0"} />
-              <Metric label="Value" value={deck ? money(summary.selectedTotal) : "$0"} />
-            </div>
           </div>
 
           <div className="pmd-card-frame rounded-md p-4">
@@ -1006,6 +1067,34 @@ export default function DeckOptimizer() {
               <span className="text-xs leading-5 text-zinc-500">
                 Supabase cache resolves first; live fallback queues Scryfall requests at 110ms spacing.
               </span>
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-3">
+              <Metric label="Cards" value={deck?.stats.totalLines ?? "0"} />
+              <Metric label="Copies" value={deck?.stats.totalQuantity ?? "0"} />
+              <Metric label="Value" value={deck ? money(summary.selectedTotal) : "$0"} />
+            </div>
+            <div className="mt-3 rounded border-2 border-[#17130f] bg-[#17130f] p-3 text-[#fffaf0]">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#d7cec0]">
+                    Deck Rating
+                  </div>
+                  <div className="mt-1 text-xl font-semibold">{artRating.label}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-3xl font-semibold">{artRating.score}</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#d7cec0]">
+                    Bling Score
+                  </div>
+                </div>
+              </div>
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#5a4c3c]">
+                <div
+                  className="h-full rounded-full bg-[#c99234] transition-all"
+                  style={{ width: `${Math.max(5, artRating.score)}%` }}
+                />
+              </div>
+              <p className="mt-2 text-xs leading-5 text-[#f6eed7]">{artRating.detail}</p>
             </div>
           </div>
         </div>

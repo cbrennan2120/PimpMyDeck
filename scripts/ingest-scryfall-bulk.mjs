@@ -1,5 +1,11 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
+import { createWriteStream } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { Readable } from "node:stream";
+import { once } from "node:events";
+import { chain } from "stream-chain";
+import { parser } from "stream-json";
+import { streamArray } from "stream-json/streamers/stream-array.js";
 
 const outputPath = resolve(process.argv[2] ?? "data/scryfall-print-cache.json");
 
@@ -16,8 +22,13 @@ function imageUris(card) {
   return card.image_uris ?? card.card_faces?.[0]?.image_uris ?? {};
 }
 
+function shouldInclude(card) {
+  return card.lang === "en";
+}
+
 function normalize(card) {
   if (!card.oracle_id || card.object !== "card") return null;
+  if (!shouldInclude(card)) return null;
 
   return {
     scryfallId: card.id,
@@ -71,10 +82,42 @@ async function fetchJson(url) {
 
 const catalog = await fetchJson("https://api.scryfall.com/bulk-data");
 const downloadUri = pickBulkDownloadUri(catalog.data ?? []);
-const cards = await fetchJson(downloadUri);
-const normalized = cards.map(normalize).filter(Boolean);
-
 await mkdir(dirname(outputPath), { recursive: true });
-await writeFile(outputPath, JSON.stringify(normalized));
 
-console.log(`Wrote ${normalized.length} print records to ${outputPath}`);
+const response = await fetch(downloadUri, {
+  headers: {
+    "User-Agent": "PimpMyDeckBulkIngest/0.1",
+    Accept: "application/json;q=0.9,*/*;q=0.8",
+  },
+});
+
+if (!response.ok || !response.body) {
+  throw new Error(`Request failed ${response.status} for ${downloadUri}`);
+}
+
+const output = createWriteStream(outputPath);
+let wroteFirst = false;
+let count = 0;
+output.write("[");
+
+const bulkPipeline = chain([
+  Readable.fromWeb(response.body),
+  parser(),
+  streamArray(),
+]);
+
+for await (const { value } of bulkPipeline) {
+  const normalized = normalize(value);
+  if (!normalized) continue;
+  count += 1;
+  if (count % 10000 === 0) console.log(`Normalized ${count} print records`);
+  if (!output.write(`${wroteFirst ? "," : ""}${JSON.stringify(normalized)}`)) {
+    await once(output, "drain");
+  }
+  wroteFirst = true;
+}
+
+output.end("]");
+await once(output, "finish");
+
+console.log(`Wrote ${count} print records to ${outputPath}`);

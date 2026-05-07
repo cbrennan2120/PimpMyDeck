@@ -36,10 +36,15 @@ describe("Supabase print cache", () => {
 
   it("loads a name-based cache from Supabase rows", async () => {
     const supabase = {
-      from: () => ({
+      from: (table: string) => ({
         select: () => ({
           in: async (_column: string, values: string[]) => ({
-            data: values.includes("Sol Ring") ? [row] : [],
+            data:
+              table === "oracle_cards" && values.includes("Sol Ring")
+                ? [{ oracle_id: "oracle-1" }]
+                : table === "card_prints" && values.includes("oracle-1")
+                  ? [row]
+                  : [],
             error: null,
           }),
         }),

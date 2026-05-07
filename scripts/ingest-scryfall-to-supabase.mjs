@@ -1,6 +1,9 @@
-import { readFile } from "node:fs/promises";
+import { createReadStream } from "node:fs";
 import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
+import { chain } from "stream-chain";
+import { parser } from "stream-json";
+import { streamArray } from "stream-json/streamers/stream-array.js";
 
 const inputPath = resolve(process.argv[2] ?? "data/scryfall-print-cache.json");
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -20,6 +23,25 @@ function chunk(items, size) {
     chunks.push(items.slice(index, index + size));
   }
   return chunks;
+}
+
+async function uploadBatch(printBatch) {
+  if (printBatch.length === 0) return;
+
+  const oracleRowsById = new Map();
+  for (const print of printBatch) {
+    oracleRowsById.set(print.oracleId, oracleRow(print));
+  }
+
+  for (const rows of chunk([...oracleRowsById.values()], 1000)) {
+    const { error } = await supabase.from("oracle_cards").upsert(rows, { onConflict: "oracle_id" });
+    if (error) throw error;
+  }
+
+  for (const rows of chunk(printBatch.map(printRow), 500)) {
+    const { error } = await supabase.from("card_prints").upsert(rows, { onConflict: "scryfall_id" });
+    if (error) throw error;
+  }
 }
 
 function oracleRow(print) {
@@ -60,12 +82,6 @@ function printRow(print) {
   };
 }
 
-const prints = JSON.parse(await readFile(inputPath, "utf8"));
-const oracleRowsById = new Map();
-for (const print of prints) {
-  oracleRowsById.set(print.oracleId, oracleRow(print));
-}
-
 const { data: ingestRun, error: runError } = await supabase
   .from("ingest_runs")
   .insert({ status: "running", card_count: 0 })
@@ -74,26 +90,38 @@ const { data: ingestRun, error: runError } = await supabase
 if (runError) throw runError;
 
 try {
-  for (const rows of chunk([...oracleRowsById.values()], 1000)) {
-    const { error } = await supabase.from("oracle_cards").upsert(rows, { onConflict: "oracle_id" });
-    if (error) throw error;
+  let uploaded = 0;
+  let printBatch = [];
+
+  const inputPipeline = chain([
+    createReadStream(inputPath),
+    parser(),
+    streamArray(),
+  ]);
+
+  for await (const { value } of inputPipeline) {
+    printBatch.push(value);
+    if (printBatch.length < 500) continue;
+
+    await uploadBatch(printBatch);
+    uploaded += printBatch.length;
+    console.log(`Uploaded ${uploaded} prints`);
+    printBatch = [];
   }
 
-  let uploaded = 0;
-  for (const rows of chunk(prints.map(printRow), 500)) {
-    const { error } = await supabase.from("card_prints").upsert(rows, { onConflict: "scryfall_id" });
-    if (error) throw error;
-    uploaded += rows.length;
-    console.log(`Uploaded ${uploaded}/${prints.length} prints`);
+  if (printBatch.length > 0) {
+    await uploadBatch(printBatch);
+    uploaded += printBatch.length;
+    console.log(`Uploaded ${uploaded} prints`);
   }
 
   const { error: finishError } = await supabase
     .from("ingest_runs")
-    .update({ status: "succeeded", card_count: prints.length, finished_at: new Date().toISOString() })
+    .update({ status: "succeeded", card_count: uploaded, finished_at: new Date().toISOString() })
     .eq("id", ingestRun.id);
   if (finishError) throw finishError;
 
-  console.log(`Supabase ingest complete: ${prints.length} print records`);
+  console.log(`Supabase ingest complete: ${uploaded} print records`);
 } catch (error) {
   await supabase
     .from("ingest_runs")

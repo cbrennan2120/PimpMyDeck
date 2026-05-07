@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "ingest:scryfall": "node scripts/ingest-scryfall-bulk.mjs",
-    "ingest:supabase": "node scripts/ingest-scryfall-to-supabase.mjs"
+    "ingest:supabase": "node scripts/ingest-scryfall-to-supabase.mjs",
+    "prune:supabase": "node scripts/prune-supabase-cache.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",
@@ -17,7 +18,8 @@
     "lucide-react": "^1.14.0",
     "next": "16.2.5",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "stream-json": "^2.1.0"
   },
   "devDependencies": {
     "@netlify/plugin-nextjs": "^5.15.10",

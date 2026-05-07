@@ -9,23 +9,20 @@ export async function GET() {
   }
 
   const supabase = await createClient();
-  const [{ count: printCount, error: printError }, { data: ingestRuns, error: ingestError }] =
-    await Promise.all([
-      supabase.from("card_prints").select("scryfall_id", { count: "exact", head: true }),
-      supabase
-        .from("ingest_runs")
-        .select("id,source,status,card_count,started_at,finished_at")
-        .order("started_at", { ascending: false })
-        .limit(5),
-    ]);
+  const { data: ingestRuns, error: ingestError } = await supabase
+    .from("ingest_runs")
+    .select("id,source,status,card_count,started_at,finished_at")
+    .order("started_at", { ascending: false })
+    .limit(5);
 
-  if (printError) return Response.json({ error: printError.message }, { status: 500 });
   if (ingestError) return Response.json({ error: ingestError.message }, { status: 500 });
+
+  const latestIngestRun = ingestRuns?.[0] ?? null;
 
   return Response.json({
     configured: true,
-    cardPrintCount: printCount ?? 0,
-    latestIngestRun: ingestRuns?.[0] ?? null,
+    cardPrintCount: latestIngestRun?.card_count ?? 0,
+    latestIngestRun,
     ingestRuns: ingestRuns ?? [],
   });
 }

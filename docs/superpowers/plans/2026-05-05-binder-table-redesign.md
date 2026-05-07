@@ -101,16 +101,16 @@
 **Files:**
 - Modify only if verification reveals a visual or build issue.
 
-- [ ] Run `npm test`.
-- [ ] Run `npm run lint`.
-- [ ] Run `npm run build`.
-- [ ] Start/check local app at `http://localhost:3000`.
-- [ ] Verify manually:
+- [x] Run `npm test`.
+- [x] Run `npm run lint`.
+- [x] Run `npm run build`.
+- [x] Start/check local app at `http://localhost:3000`.
+- [x] Verify manually:
   - homepage loads
   - deck paste/resolve still works
   - guest auth state still visible
   - save buttons remain disabled for guests
   - format warnings still show after deck resolve
   - card tiles remain readable on desktop and mobile widths
-- [ ] Push to GitHub.
-- [ ] Do not deploy Netlify unless user explicitly approves a manual deploy.
+- [x] Push to GitHub.
+- [x] Do not deploy Netlify unless user explicitly approves a manual deploy.

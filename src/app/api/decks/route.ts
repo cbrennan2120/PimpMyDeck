@@ -1,6 +1,6 @@
 import { authRequiredMessage, deckOwnerPayload, isAuthConfigured } from "@/lib/auth-policy";
 import { deckCardRow, cardPrintRow, uniqueOracleRows, uniquePrintsFromDeck } from "@/lib/supabase/deck-persistence";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { DEFAULT_FORMAT } from "@/lib/formats";
 import type { ResolvedDeckCard } from "@/lib/types";
 
@@ -30,13 +30,14 @@ export async function POST(request: Request) {
 
   if (!user) return Response.json({ error: authRequiredMessage }, { status: 401 });
 
+  const cacheClient = createServiceRoleClient() ?? supabase;
   if (prints.length > 0) {
-    const { error: oracleError } = await supabase
+    const { error: oracleError } = await cacheClient
       .from("oracle_cards")
       .upsert(uniqueOracleRows(prints), { onConflict: "oracle_id" });
     if (oracleError) return Response.json({ error: oracleError.message }, { status: 500 });
 
-    const { error: printError } = await supabase
+    const { error: printError } = await cacheClient
       .from("card_prints")
       .upsert(prints.map(cardPrintRow), { onConflict: "scryfall_id" });
     if (printError) return Response.json({ error: printError.message }, { status: 500 });

@@ -1,5 +1,6 @@
 import { getCachedPrintById } from "@/lib/scryfall";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/server";
+import { parseAllowedTcgplayerUrl } from "@/lib/url-safety";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,10 +35,10 @@ export async function GET(request: Request) {
   }
 
   const print = scryfallId ? getCachedPrintById(scryfallId) : undefined;
-  const destination = print?.purchaseUris.tcgplayer ?? fallback;
+  const destination = parseAllowedTcgplayerUrl(print?.purchaseUris.tcgplayer ?? fallback);
 
   if (!destination) {
-    return Response.json({ error: "No TCGplayer URL available" }, { status: 404 });
+    return Response.json({ error: "No allowed TCGplayer URL available" }, { status: 404 });
   }
 
   const prefix = process.env.SUBID_PREFIX ?? "pmd";
@@ -47,10 +48,10 @@ export async function GET(request: Request) {
   if (
     scryfallId &&
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+    process.env.SUPABASE_SERVICE_ROLE_KEY
   ) {
-    const supabase = await createClient();
-    await supabase.from("affiliate_clicks").insert({
+    const supabase = createServiceRoleClient();
+    await supabase?.from("affiliate_clicks").insert({
       scryfall_id: scryfallId,
       merchant: "tcgplayer",
       outbound_url: outboundUrl,

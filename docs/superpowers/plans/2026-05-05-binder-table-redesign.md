@@ -62,17 +62,17 @@
 - Modify: `C:\Users\BCPets\PimpMyDeck\src\components\deck-optimizer.tsx`
 - Modify: `C:\Users\BCPets\PimpMyDeck\src\app\globals.css`
 
-- [ ] Restyle `DeckCard` as a dense binder tile:
+- [x] Restyle `DeckCard` as a dense binder tile:
   - white-border outer frame
   - selected print image on the left for desktop
   - rules-text style metadata panel on the right
   - action buttons kept compact
-- [ ] Preserve unresolved correction input and candidate picker.
-- [ ] Update selected print badges to use set/treatment/price rows with high contrast.
-- [ ] Keep mobile layout stacked with image above metadata.
-- [ ] Ensure text does not overflow in card names, set names, buttons, or badges.
-- [ ] Run `npm run lint` and `npm run build`.
-- [ ] Commit with message `Restyle deck cards as binder tiles`.
+- [x] Preserve unresolved correction input and candidate picker.
+- [x] Update selected print badges to use set/treatment/price rows with high contrast.
+- [x] Keep mobile layout stacked with image above metadata.
+- [x] Ensure text does not overflow in card names, set names, buttons, or badges.
+- [x] Run `npm run lint` and `npm run build`.
+- [x] Commit deck-card work. Completed in `eaba234 Apply Binder Table visual redesign` and refined in `f8465f4 Fix toolbar wrapping and enlarge deck cards`.
 
 ### Task 4: Binder Notes Sidebar
 

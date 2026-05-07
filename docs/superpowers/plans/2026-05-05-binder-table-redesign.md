@@ -43,18 +43,18 @@
 - Modify: `C:\Users\BCPets\PimpMyDeck\src\components\deck-optimizer.tsx`
 - Optional test: no unit test required; presentational only.
 
-- [ ] Add a helper map in `deck-optimizer.tsx` assigning vibe IDs to WUBRG accent classes:
+- [x] Add a helper map in `deck-optimizer.tsx` assigning vibe IDs to WUBRG accent classes:
   - `retro`: white
   - `showcase`: blue
   - `secret-lair`: black
   - `foil`: red
   - `cheap-foil`: green
   - `max-flex`: five-color
-- [ ] Add a compact `ManaPip` component that renders one or more `.pmd-mana-pip` spans with accessible labels.
-- [ ] Update vibe buttons to show pips before labels and use ink/white-border styling.
-- [ ] Keep all existing `onClick`, disabled, active-vibe, and title behavior unchanged.
-- [ ] Run `npm run lint` and `npm run build`.
-- [ ] Commit with message `Restyle vibe controls with WUBRG pips`.
+- [x] Add a compact `ManaPip` component that renders one or more `.pmd-mana-pip` spans with accessible labels.
+- [x] Update vibe buttons to show pips before labels and use ink/white-border styling.
+- [x] Keep all existing `onClick`, disabled, active-vibe, and title behavior unchanged.
+- [x] Run `npm run lint` and `npm run build`.
+- [x] Commit vibe-control work. Completed in `eaba234 Apply Binder Table visual redesign`.
 
 ### Task 3: Dense Binder Card Tiles
 

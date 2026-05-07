@@ -16,7 +16,7 @@
 - Modify: `C:\Users\BCPets\PimpMyDeck\src\app\globals.css`
 - Modify: `C:\Users\BCPets\PimpMyDeck\src\components\deck-optimizer.tsx`
 
-- [ ] Add CSS custom properties for MTG palette:
+- [x] Add CSS custom properties for MTG palette:
   - `--pmd-paper: #f7f3e7`
   - `--pmd-card: #fffaf0`
   - `--pmd-frame: #d7cec0`
@@ -26,16 +26,16 @@
   - `--pmd-black: #25211d`
   - `--pmd-red: #b43a2f`
   - `--pmd-green: #28724d`
-- [ ] Update `body` background from flat gray/off-white to parchment radial/linear treatment using those variables.
-- [ ] Add reusable CSS classes:
+- [x] Update `body` background from flat gray/off-white to parchment radial/linear treatment using those variables.
+- [x] Add reusable CSS classes:
   - `.pmd-card-frame`
   - `.pmd-panel`
   - `.pmd-rule-box`
   - `.pmd-mana-pip`
   - `.pmd-binder-grid`
-- [ ] Replace top-level `<main>` background classes with the new parchment theme.
-- [ ] Run `npm run lint` and `npm run build`.
-- [ ] Commit with message `Add Binder Table theme tokens`.
+- [x] Replace top-level `<main>` background classes with the new parchment theme.
+- [x] Run `npm run lint` and `npm run build`.
+- [x] Commit theme work. Completed in `eaba234 Apply Binder Table visual redesign`.
 
 ### Task 2: WUBRG Vibe Controls
 

@@ -1165,8 +1165,6 @@ export default function DeckOptimizer() {
         </section>
 
         <aside className="space-y-4">
-          {deck && <SwipeReview cards={deck.cards} onSelect={selectPrint} />}
-
           <section className="pmd-panel rounded-md p-4">
             <div className="flex items-center gap-2 text-sm font-semibold text-zinc-950">
               <ShieldCheck className="h-4 w-4" />
@@ -1252,6 +1250,8 @@ export default function DeckOptimizer() {
               )}
             </section>
           )}
+
+          {deck && <SwipeReview cards={deck.cards} onSelect={selectPrint} />}
 
           <section className="pmd-panel rounded-md p-4">
             <h2 className="text-sm font-semibold text-zinc-950">Deck Value</h2>

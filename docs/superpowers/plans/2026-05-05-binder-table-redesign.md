@@ -79,8 +79,8 @@
 **Files:**
 - Modify: `C:\Users\BCPets\PimpMyDeck\src\components\deck-optimizer.tsx`
 
-- [ ] Restyle sidebar sections as binder notes using `.pmd-panel`.
-- [ ] Keep these sections and order:
+- [x] Restyle sidebar sections as binder notes using `.pmd-panel`.
+- [x] Keep these sections and order:
   - Account
   - Deck Format
   - Format Warnings
@@ -91,10 +91,10 @@
   - Saved Decks
   - Data Status
   - Export Preview
-- [ ] Make side panels denser by reducing excessive padding while preserving tap targets.
-- [ ] Use WUBRG accents sparingly for status: green for signed in/save, red/amber for warnings, blue for data/cache.
-- [ ] Run `npm run lint` and `npm run build`.
-- [ ] Commit with message `Restyle sidebar as binder notes`.
+- [x] Make side panels denser by reducing excessive padding while preserving tap targets.
+- [x] Use WUBRG accents sparingly for status: green for signed in/save, red/amber for warnings, blue for data/cache.
+- [x] Run `npm run lint` and `npm run build`.
+- [x] Commit sidebar work.
 
 ### Task 5: Final Verification And Manual Deploy Gate
 

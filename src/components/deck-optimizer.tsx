@@ -490,8 +490,8 @@ export default function DeckOptimizer() {
   });
   const [deck, setDeck] = useState<ResolvedDeck | null>(() => {
     if (typeof window === "undefined") return null;
-    const savedDeck = localStorage.getItem("pmd.deck");
-    return savedDeck ? (JSON.parse(savedDeck) as ResolvedDeck) : null;
+    localStorage.removeItem("pmd.deck");
+    return null;
   });
   const [activeVibe, setActiveVibe] = useState<VibeId>(() => {
     if (typeof window === "undefined") return "retro";
@@ -520,19 +520,27 @@ export default function DeckOptimizer() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    localStorage.setItem("pmd.deckText", deckText);
+    try {
+      localStorage.setItem("pmd.deckText", deckText);
+    } catch {
+      localStorage.removeItem("pmd.deck");
+    }
   }, [deckText]);
 
   useEffect(() => {
-    if (deck) localStorage.setItem("pmd.deck", JSON.stringify(deck));
-  }, [deck]);
-
-  useEffect(() => {
-    localStorage.setItem("pmd.vibe", activeVibe);
+    try {
+      localStorage.setItem("pmd.vibe", activeVibe);
+    } catch {
+      localStorage.removeItem("pmd.deck");
+    }
   }, [activeVibe]);
 
   useEffect(() => {
-    localStorage.setItem("pmd.format", deckFormat);
+    try {
+      localStorage.setItem("pmd.format", deckFormat);
+    } catch {
+      localStorage.removeItem("pmd.deck");
+    }
   }, [deckFormat]);
 
   useEffect(() => {
